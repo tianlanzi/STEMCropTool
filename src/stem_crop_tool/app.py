@@ -1,4 +1,4 @@
-"""Application bootstrap for the Phase 0 desktop shell."""
+"""Application bootstrap for STEMCropTool."""
 
 from __future__ import annotations
 

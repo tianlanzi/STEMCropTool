@@ -518,7 +518,30 @@ Every implementation agent must follow this protocol:
 
 ### Phase 4 — Main window, image display, and stack navigation
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
+
+**Completion evidence:**
+
+- Replaced the bootstrap shell with an English main window containing exact
+  input filters, menus, toolbar, status/busy feedback, view controls, disabled
+  future crop/export placeholders, and 2D-aware stack controls.
+- Added worker-thread source opening with GUI-thread-only state changes,
+  last-request-wins handling for overlapping requests, deterministic thread
+  cleanup, concise user errors, and preservation of the current document after
+  a failed replacement.
+- Added multiple-DM-dataset selection and verified the supplied real 2D DM3 and
+  DM4 files open through the GUI. Real 3D DM validation remains intentionally
+  deferred to Phase 7 because no such fixture is currently available.
+- Added an independently owned finite-min/max `uint8` display buffer and a
+  detached grayscale `QImage` with explicit stride. Constant and non-finite
+  display pixels are black; source arrays remain unchanged.
+- Added middle-button pan, wheel/programmatic zoom, fit, actual-pixel 100%,
+  reset, and transform-preserving lazy stack navigation.
+- Full cumulative suite with external real data: `154 passed` on Python
+  3.12.14. Without external data: `152 passed, 2 skipped`.
+- The UI suite passed 10 consecutive runs (`12 passed` per run) after hardening
+  Qt thread ownership and GUI-thread cleanup. Source launch smoke test,
+  `compileall`, and `pip check` also passed.
 
 **Goal:** Provide a stable desktop shell that opens supported data and displays an exact selected slice.
 
