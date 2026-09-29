@@ -3,17 +3,26 @@
 STEMCropTool is a planned cross-platform desktop application for pixel-exact
 cropping of grayscale STEM images and image stacks.
 
-Phases 0 through 2 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
+Phases 0 through 3 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
 complete. The repository contains the application shell, early Windows
 packaging configuration, a Qt-independent tested core, and lazy readers for
-NPY, PNG, JPEG, DM3, and DM4 data. Export encoding and the interactive file-open
-and crop UI are intentionally reserved for later phases.
+NPY, PNG, JPEG, DM3, and DM4 data. It also contains a tested streaming export
+engine for raw/normalized NPY and PNG output, JSON sidecars, and batch
+manifests. The interactive file-open and crop UI are intentionally reserved for
+later phases.
 
 The reader layer preserves source dtype and declared dimensionality. NPY and DM
 stacks are memory-mapped, grayscale PNG supports exact 8-bit and 16-bit values,
 color rasters are rejected, and DM calibration/tags remain available through
 the adapter. Real 2D DM3 and DM4 samples have been validated; real 3D DM stack
 support remains explicitly provisional until such a fixture is available.
+
+Exports use exact integer source-pixel crops. Batch jobs apply the same crop to
+each selected slice and process one slice at a time. Existing files are never
+replaced unless the request explicitly enables overwrite, and incomplete
+current outputs use same-directory temporary files that are removed after
+failure. Single exports write a same-stem JSON sidecar; batch exports write one
+`manifest.json`.
 
 ## Development environment
 

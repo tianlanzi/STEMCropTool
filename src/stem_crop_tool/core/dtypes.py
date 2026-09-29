@@ -28,8 +28,8 @@ def output_dtype_for(
     if output_format is ExportFormat.NPY:
         return dtype
 
-    if dtype in (np.dtype(np.uint8), np.dtype(np.uint16)):
-        return dtype
+    if dtype.kind == "u" and dtype.itemsize in (1, 2):
+        return np.dtype(np.uint8 if dtype.itemsize == 1 else np.uint16)
 
     raise UnsupportedDTypeError(
         f"raw PNG export does not support dtype {dtype}; "

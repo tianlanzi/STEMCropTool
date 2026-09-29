@@ -35,6 +35,12 @@ def test_raw_png_preserves_supported_unsigned_dtype(source_dtype: np.dtype) -> N
     ) == np.dtype(source_dtype)
 
 
+def test_raw_png_accepts_non_native_uint16_values_as_native_output() -> None:
+    assert output_dtype_for(
+        np.dtype(">u2"), ExportFormat.PNG, NormalizationMode.NONE
+    ) == np.dtype(np.uint16)
+
+
 @pytest.mark.parametrize(
     "source_dtype",
     [np.int8, np.int16, np.uint32, np.float32, np.float64, np.bool_],

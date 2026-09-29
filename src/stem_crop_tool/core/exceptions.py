@@ -52,3 +52,19 @@ class DatasetSelectionRequiredError(SourceError):
 
 class NoSupportedDatasetError(SourceError):
     """Raised when a DM file contains no supported 2D/3D image dataset."""
+
+
+class ExportError(STEMCropError):
+    """Base exception for expected export failures."""
+
+
+class ExportValidationError(ExportError, ValueError):
+    """Raised when an export request conflicts with the source or format."""
+
+
+class OutputExistsError(ExportError, FileExistsError):
+    """Raised when export would overwrite a path without permission."""
+
+
+class ExportWriteError(ExportError, OSError):
+    """Raised when an output file cannot be encoded or committed."""

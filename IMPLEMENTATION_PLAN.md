@@ -453,7 +453,32 @@ Every implementation agent must follow this protocol:
 
 ### Phase 3 — Export engine and metadata sidecars
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
+
+**Completion evidence:**
+
+- Added Qt-independent current/range/all slice selection, deterministic
+  default naming, thread-safe cooperative cancellation, and immutable progress
+  records.
+- Added a streaming export engine that reads, crops, normalizes, and writes one
+  slice at a time rather than collecting a stack of crops in memory.
+- Added raw and locally normalized NPY export. Raw output preserves dtype and
+  values (including non-native endian dtype); normalized output is `float32`.
+- Added exact raw `uint8`/`uint16` PNG export and rounded normalized `uint8`
+  PNG export. Non-native endian `uint16` values are converted to native storage
+  without changing pixel values; forbidden raw PNG dtypes fail before writing.
+- Added same-stem JSON sidecars for single exports and one `manifest.json` for
+  batches, including source, crop, normalization, output, slice, dataset, and
+  spatial/physical-size metadata without absolute source-path leakage.
+- Added same-directory atomic temporary writes, preflight collision checks,
+  explicit overwrite policy, deterministic progress callbacks, cancellation
+  manifests, and incomplete-current-file cleanup on failure.
+- Added an end-to-end test from a memory-mapped NPY stack through ordered batch
+  outputs and manifest validation.
+- Full cumulative suite with external real-DM tests: `138 passed` on Python
+  3.12.14. Without external fixtures, only the opt-in real-DM integration test
+  is skipped.
+- `compileall` succeeded and `pip check` reported no broken requirements.
 
 **Goal:** Produce scientifically predictable PNG/NPY outputs and JSON metadata without a GUI.
 

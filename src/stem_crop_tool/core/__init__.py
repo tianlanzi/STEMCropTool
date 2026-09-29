@@ -1,5 +1,14 @@
 """Qt-independent numerical and data contracts for STEMCropTool."""
 
+from stem_crop_tool.core.batch import (
+    CancellationToken,
+    ExportProgress,
+    all_slice_indices,
+    batch_item_filename,
+    current_slice_indices,
+    inclusive_slice_range,
+    suggested_single_filename,
+)
 from stem_crop_tool.core.crop import (
     clamp_rect,
     crop_array,
@@ -20,18 +29,25 @@ from stem_crop_tool.core.models import (
 from stem_crop_tool.core.normalize import normalize_local_minmax
 
 __all__ = [
+    "CancellationToken",
     "CropRect",
     "ExportFormat",
+    "ExportProgress",
     "ExportRequest",
     "ExportResult",
     "ImageMetadata",
     "NormalizationMode",
+    "all_slice_indices",
+    "batch_item_filename",
     "clamp_rect",
     "crop_array",
+    "current_slice_indices",
+    "inclusive_slice_range",
     "normalize_local_minmax",
     "output_dtype_for",
     "rect_from_drag",
     "resize_rect",
+    "suggested_single_filename",
     "translate_rect",
     "validate_rect_within",
 ]
