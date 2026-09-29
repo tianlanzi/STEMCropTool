@@ -7,11 +7,14 @@ from collections.abc import Callable
 from pathlib import Path
 from threading import Event
 
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QThread, Signal
 
+from stem_crop_tool.core.batch import CancellationToken, ExportProgress
 from stem_crop_tool.core.exceptions import DatasetSelectionRequiredError, STEMCropError
+from stem_crop_tool.core.models import ExportRequest, ExportResult
 from stem_crop_tool.core.readers.base import ImageSource
 from stem_crop_tool.core.readers.dm import DMDatasetInfo, list_dm_datasets
+from stem_crop_tool.infrastructure.exporters import export_source
 from stem_crop_tool.infrastructure.source_loader import open_image_source
 
 
@@ -19,16 +22,15 @@ LOGGER = logging.getLogger(__name__)
 
 SourceOpener = Callable[..., ImageSource]
 DatasetLister = Callable[[str | Path], tuple[DMDatasetInfo, ...]]
+ExportFunction = Callable[..., ExportResult]
 
 
-class OpenSourceWorker(QObject):
+class OpenSourceWorker(QThread):
     """Open one image source and transfer ownership to the GUI on success."""
 
     opened = Signal(int, object)
     selection_required = Signal(int, str, object)
     failed = Signal(int, str)
-    finished = Signal(int)
-
     def __init__(
         self,
         request_id: int,
@@ -51,7 +53,6 @@ class OpenSourceWorker(QObject):
 
         self._cancelled.set()
 
-    @Slot()
     def run(self) -> None:
         source: ImageSource | None = None
         try:
@@ -100,4 +101,48 @@ class OpenSourceWorker(QObject):
         finally:
             if source is not None:
                 source.close()
-            self.finished.emit(self.request_id)
+
+
+class ExportWorker(QThread):
+    """Run one immutable export request with cooperative cancellation."""
+
+    progress = Signal(object)
+    succeeded = Signal(object)
+    failed = Signal(str)
+
+    def __init__(
+        self,
+        source: ImageSource,
+        request: ExportRequest,
+        *,
+        exporter: ExportFunction = export_source,
+    ) -> None:
+        super().__init__()
+        self.source = source
+        self.request = request
+        self._exporter = exporter
+        self._cancellation = CancellationToken()
+
+    def cancel(self) -> None:
+        self._cancellation.cancel()
+
+    def _report_progress(self, progress: ExportProgress) -> None:
+        self.progress.emit(progress)
+
+    def run(self) -> None:
+        try:
+            result = self._exporter(
+                self.source,
+                self.request,
+                progress_callback=self._report_progress,
+                cancellation_token=self._cancellation,
+            )
+        except STEMCropError as exc:
+            self.failed.emit(str(exc))
+        except Exception:
+            LOGGER.exception("Unexpected failure while exporting crop")
+            self.failed.emit(
+                "The export failed unexpectedly. See the application log for details."
+            )
+        else:
+            self.succeeded.emit(result)

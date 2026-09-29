@@ -636,7 +636,36 @@ Every implementation agent must follow this protocol:
 
 ### Phase 6 — Export UI, background batch processing, progress, and cancellation
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
+
+**Completion evidence:**
+
+- Added an English export dialog for PNG/NPY, optional local normalization,
+  overwrite policy, current/range/all stack selection, single-file targets,
+  and batch directories.
+- Added live output-dtype validation. Unsupported raw PNG dtypes disable
+  confirmation with an actionable normalize-or-NPY message, and normalized
+  stack exports warn that independently normalized slices are not
+  quantitatively comparable.
+- Added background export workers, progress count/percentage/current-slice
+  feedback, a cooperative Cancel button, success/cancellation summaries, and
+  concise failure recovery without touching GUI objects from worker threads.
+- Export jobs snapshot the immutable ROI, format, normalization, destination,
+  overwrite choice, and slice indices at start. Document, crop, and stack
+  mutation controls are disabled while a job is active.
+- Replaced the earlier event-loop-dependent load worker arrangement with
+  one-shot `QThread.run()` workers for both loading and exporting; thread exit
+  no longer depends on a queued `quit()` callback.
+- UI integration tests cover 2D single export, 3D current/range/all export,
+  normalized PNG batches, ROI snapshotting, errors, progress, responsiveness,
+  and cancellation on a simulated `12 × 512 × 512` stack with valid completed
+  files, cancellation metadata, and no temporary-file residue.
+- Full cumulative suite with supplied real DM3/DM4 fixtures: `187 passed` on
+  Python 3.12.14. Without external data: `185 passed, 2 skipped`.
+- Combined load/export worker suites passed 10 consecutive runs (`15 passed`
+  per run); the previously timing-sensitive load tests additionally passed 20
+  consecutive focused runs. Source launch smoke, `compileall`, and `pip check`
+  passed, and the export dialog received a visual layout check.
 
 **Goal:** Connect the tested export engine to the UI without blocking the event loop.
 

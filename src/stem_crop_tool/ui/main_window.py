@@ -5,15 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QThread, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
+    QDialog,
     QFileDialog,
     QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
     QProgressBar,
+    QProgressDialog,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -21,13 +23,20 @@ from PySide6.QtWidgets import (
 
 from stem_crop_tool.core.readers.base import ImageDocument, ImageSource
 from stem_crop_tool.core.readers.dm import DMDatasetInfo, list_dm_datasets
-from stem_crop_tool.core.models import CropRect
+from stem_crop_tool.core.models import CropRect, ExportRequest, ExportResult
 from stem_crop_tool.infrastructure.display import make_grayscale_qimage
 from stem_crop_tool.infrastructure.source_loader import open_image_source
 from stem_crop_tool.ui.crop_controls import CropControls
+from stem_crop_tool.ui.export_dialog import ExportDialog
 from stem_crop_tool.ui.image_view import ImageView
 from stem_crop_tool.ui.stack_controls import StackControls
-from stem_crop_tool.ui.workers import DatasetLister, OpenSourceWorker, SourceOpener
+from stem_crop_tool.ui.workers import (
+    DatasetLister,
+    ExportFunction,
+    ExportWorker,
+    OpenSourceWorker,
+    SourceOpener,
+)
 
 
 SUPPORTED_FILE_FILTER = (
@@ -39,8 +48,12 @@ SUPPORTED_FILE_FILTER = (
 
 @dataclass(slots=True)
 class _LoadJob:
-    thread: QThread
     worker: OpenSourceWorker
+
+
+@dataclass(slots=True)
+class _ExportJob:
+    worker: ExportWorker
 
 
 class MainWindow(QMainWindow):
@@ -48,12 +61,16 @@ class MainWindow(QMainWindow):
 
     load_completed = Signal(bool)
     error_presented = Signal(str)
+    export_progressed = Signal(object)
+    export_completed = Signal(object)
+    export_failed = Signal(str)
 
     def __init__(
         self,
         *,
         source_opener: SourceOpener = open_image_source,
         dataset_lister: DatasetLister = list_dm_datasets,
+        source_exporter: ExportFunction | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle("STEMCropTool")
@@ -64,9 +81,16 @@ class MainWindow(QMainWindow):
         self.last_error: str | None = None
         self._source_opener = source_opener
         self._dataset_lister = dataset_lister
+        self._source_exporter = source_exporter
         self._request_counter = 0
         self._active_request_id: int | None = None
         self._jobs: dict[int, _LoadJob] = {}
+        self._export_job: _ExportJob | None = None
+        self._export_active = False
+        self._active_export_request: ExportRequest | None = None
+        self.export_progress_dialog: QProgressDialog | None = None
+        self.last_export_result: ExportResult | None = None
+        self.last_export_error: str | None = None
         self._busy = False
         self._closing = False
 
@@ -107,6 +131,14 @@ class MainWindow(QMainWindow):
         return len(self._jobs)
 
     @property
+    def is_exporting(self) -> bool:
+        return self._export_active
+
+    @property
+    def export_job_count(self) -> int:
+        return int(self._export_job is not None)
+
+    @property
     def current_crop(self) -> CropRect | None:
         return self.image_view.crop_rect
 
@@ -144,8 +176,8 @@ class MainWindow(QMainWindow):
         self.clear_crop_action.triggered.connect(self.image_view.clear_crop)
 
         self.export_action = QAction("Export...", self)
-        self.export_action.setEnabled(False)
-        self.export_action.setToolTip("Export workflow is added in Phase 6")
+        self.export_action.setShortcut(QKeySequence.StandardKey.Save)
+        self.export_action.triggered.connect(self.show_export_dialog)
 
     def _create_menus(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
@@ -215,16 +247,14 @@ class MainWindow(QMainWindow):
 
         if self._closing:
             raise RuntimeError("the window is closing")
+        if self._export_active:
+            raise RuntimeError("cannot open a source while an export is running")
         self._request_counter += 1
         request_id = self._request_counter
         self._active_request_id = request_id
         self.last_error = None
         self._set_busy(True, f"Opening {Path(path).name}...")
 
-        # QObject parentage keeps the QThread wrapper alive through its own
-        # ``finished`` signal even after the Python-side job entry is removed.
-        thread = QThread(self)
-        thread.setProperty("request_id", request_id)
         worker = OpenSourceWorker(
             request_id,
             path,
@@ -232,18 +262,15 @@ class MainWindow(QMainWindow):
             opener=self._source_opener,
             dataset_lister=self._dataset_lister,
         )
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
+        worker.setParent(self)
+        worker.setProperty("request_id", request_id)
         worker.opened.connect(self._on_source_opened)
         worker.selection_required.connect(self._on_dataset_selection_required)
         worker.failed.connect(self._on_load_failed)
-        worker.finished.connect(self._on_load_finished)
-        worker.finished.connect(thread.quit)
+        worker.finished.connect(self._cleanup_finished_thread)
         worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self._cleanup_finished_thread)
-        thread.finished.connect(thread.deleteLater)
-        self._jobs[request_id] = _LoadJob(thread=thread, worker=worker)
-        thread.start()
+        self._jobs[request_id] = _LoadJob(worker=worker)
+        worker.start()
         return request_id
 
     def _on_source_opened(self, request_id: int, source: ImageSource) -> None:
@@ -320,6 +347,7 @@ class MainWindow(QMainWindow):
             return
         request_id = thread.property("request_id")
         if request_id is not None:
+            self._on_load_finished(int(request_id))
             self._jobs.pop(int(request_id), None)
 
     def set_current_slice(self, index: int) -> None:
@@ -348,7 +376,7 @@ class MainWindow(QMainWindow):
         self._update_source_status()
 
     def close_document(self) -> None:
-        if self._busy:
+        if self._busy or self._export_active:
             return
         self.document.close()
         self.current_slice_index = 0
@@ -384,6 +412,137 @@ class MainWindow(QMainWindow):
     def _update_zoom_status(self, factor: float) -> None:
         self.zoom_status_label.setText(f"Zoom: {factor * 100:.0f}%")
 
+    def show_export_dialog(self) -> None:
+        source = self.document.source
+        crop = self.current_crop
+        if source is None or crop is None or self._busy or self._export_active:
+            return
+        dialog = ExportDialog(
+            source.metadata,
+            crop,
+            self.current_slice_index,
+            self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.request is not None:
+            self.start_export(dialog.request)
+
+    def start_export(self, request: ExportRequest) -> None:
+        """Start an asynchronous export from an immutable request snapshot."""
+
+        source = self.document.source
+        if source is None:
+            raise RuntimeError("no image source is open")
+        if self._busy or self._export_active:
+            raise RuntimeError("another load or export operation is active")
+
+        self.last_export_result = None
+        self.last_export_error = None
+        self._active_export_request = request
+        total = len(request.slice_indices)
+        progress_dialog = QProgressDialog(
+            "Preparing export...",
+            "Cancel",
+            0,
+            total,
+            self,
+        )
+        progress_dialog.setWindowTitle("Export Crop")
+        progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        progress_dialog.setMinimumDuration(0)
+        progress_dialog.setAutoClose(False)
+        progress_dialog.setAutoReset(False)
+        progress_dialog.canceled.connect(self.cancel_export)
+        self.export_progress_dialog = progress_dialog
+
+        worker_kwargs = {}
+        if self._source_exporter is not None:
+            worker_kwargs["exporter"] = self._source_exporter
+        worker = ExportWorker(source, request, **worker_kwargs)
+        worker.setParent(self)
+        worker.progress.connect(self._on_export_progress)
+        worker.succeeded.connect(self._on_export_succeeded)
+        worker.failed.connect(self._on_export_failed)
+        worker.finished.connect(self._on_export_worker_finished)
+        worker.finished.connect(self._cleanup_export_thread)
+        worker.finished.connect(worker.deleteLater)
+        self._export_job = _ExportJob(worker=worker)
+        self._export_active = True
+        self._update_actions()
+        progress_dialog.show()
+        worker.start()
+
+    def cancel_export(self) -> None:
+        job = self._export_job
+        if job is None or not self._export_active:
+            return
+        job.worker.cancel()
+        if self.export_progress_dialog is not None:
+            self.export_progress_dialog.setLabelText(
+                "Cancelling after the current slice..."
+            )
+
+    @Slot(object)
+    def _on_export_progress(self, progress) -> None:
+        if self._closing:
+            return
+        dialog = self.export_progress_dialog
+        if dialog is not None:
+            dialog.setMaximum(progress.total)
+            dialog.setValue(progress.completed)
+            dialog.setLabelText(
+                f"Exported {progress.completed} / {progress.total} — "
+                f"slice {progress.slice_index}"
+            )
+        self.export_progressed.emit(progress)
+
+    @Slot(object)
+    def _on_export_succeeded(self, result: ExportResult) -> None:
+        self.last_export_result = result
+        self.export_completed.emit(result)
+        if self._closing:
+            return
+        total = (
+            len(self._active_export_request.slice_indices)
+            if self._active_export_request
+            else 0
+        )
+        if result.cancelled:
+            QMessageBox.information(
+                self,
+                "Export Cancelled",
+                f"Export cancelled after {len(result.output_paths)} / {total} "
+                "files. Completed files remain valid.",
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Exported {len(result.output_paths)} file(s) successfully.",
+            )
+
+    @Slot(str)
+    def _on_export_failed(self, message: str) -> None:
+        self.last_export_error = str(message)
+        self.export_failed.emit(self.last_export_error)
+        if not self._closing:
+            self._present_error(self.last_export_error)
+
+    @Slot()
+    def _on_export_worker_finished(self) -> None:
+        self._export_active = False
+        dialog = self.export_progress_dialog
+        self.export_progress_dialog = None
+        if dialog is not None:
+            dialog.close()
+            dialog.deleteLater()
+        self._active_export_request = None
+        if not self._closing:
+            self._update_actions()
+
+    @Slot()
+    def _cleanup_export_thread(self) -> None:
+        self._export_job = None
+
     def _set_busy(self, busy: bool, message: str | None = None) -> None:
         self._busy = bool(busy)
         self.busy_indicator.setVisible(self._busy)
@@ -395,23 +554,25 @@ class MainWindow(QMainWindow):
 
     def _update_actions(self) -> None:
         has_source = self.document.source is not None
-        self.open_action.setEnabled(not self._busy)
-        self.close_action.setEnabled(has_source and not self._busy)
+        operation_active = self._busy or self._export_active
+        self.open_action.setEnabled(not operation_active)
+        self.close_action.setEnabled(has_source and not operation_active)
         self.fit_action.setEnabled(has_source)
         self.actual_pixels_action.setEnabled(has_source)
         self.reset_view_action.setEnabled(has_source)
-        crop_enabled = has_source and not self._busy
+        crop_enabled = has_source and not operation_active
         self.crop_action.setEnabled(crop_enabled)
         self.clear_crop_action.setEnabled(crop_enabled and self.current_crop is not None)
         self.image_view.set_crop_enabled(crop_enabled)
         self.crop_controls.setEnabled(crop_enabled)
-        # Export remains a disabled Phase 6 placeholder. Its readiness text
-        # still makes the no-ROI prerequisite explicit.
-        self.export_action.setEnabled(False)
+        self.stack_controls.setEnabled(has_source and not operation_active)
+        self.export_action.setEnabled(
+            has_source and self.current_crop is not None and not operation_active
+        )
         if self.current_crop is None:
             self.export_action.setToolTip("Select a crop before exporting")
         else:
-            self.export_action.setToolTip("Export workflow is added in Phase 6")
+            self.export_action.setToolTip("Export the selected crop")
 
     def _present_error(self, message: str) -> None:
         self.last_error = str(message)
@@ -424,9 +585,13 @@ class MainWindow(QMainWindow):
         for job in tuple(self._jobs.values()):
             job.worker.cancel()
         for job in tuple(self._jobs.values()):
-            if job.thread.isRunning():
-                job.thread.quit()
-                job.thread.wait()
+            if job.worker.isRunning():
+                job.worker.wait()
+        export_job = self._export_job
+        if export_job is not None:
+            export_job.worker.cancel()
+            if export_job.worker.isRunning():
+                export_job.worker.wait()
         # Deliver any source result queued immediately before shutdown; the
         # closing guard makes its handler close that source instead of adopting it.
         QCoreApplication.processEvents()
