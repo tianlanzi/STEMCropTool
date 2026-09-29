@@ -3,10 +3,12 @@
 STEMCropTool is a planned cross-platform desktop application for pixel-exact
 cropping of grayscale STEM images and image stacks.
 
-The repository is currently at **Phase 0** of the
-[implementation plan](IMPLEMENTATION_PLAN.md): it contains only the application
-shell, test setup, and early Windows packaging configuration. Scientific file
-reading, crop operations, and export are intentionally not implemented yet.
+Phases 0 and 1 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
+complete. The repository contains the application shell, early Windows
+packaging configuration, and a Qt-independent tested core for crop geometry,
+normalization, metadata contracts, and output dtype decisions. Scientific file
+reading, export encoding, and interactive crop UI are intentionally not
+implemented yet.
 
 ## Development environment
 

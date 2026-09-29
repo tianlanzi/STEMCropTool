@@ -332,7 +332,21 @@ Every implementation agent must follow this protocol:
 
 ### Phase 1 — Pure core contracts, crop math, and normalization
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
+
+**Completion evidence:**
+
+- Added immutable crop, metadata, normalization, export request, and export
+  result value models.
+- Added bounded drag creation in every direction, clamping, translation,
+  resizing, square constraints, exact half-open slicing, and 2D crop extraction.
+- Added strict local min-max normalization with `float32` output, constant-crop
+  zero behavior, source immutability, and explicit NaN/Inf rejection.
+- Added raw/normalized PNG and NPY dtype decision rules without file I/O.
+- Added application-specific core exceptions.
+- Added a static architecture test proving `core/` has no PySide6 imports.
+- Full cumulative test suite: `72 passed` on Python 3.12.14.
+- `compileall` succeeded and `pip check` reported no broken requirements.
 
 **Goal:** Implement and fully test all coordinate, dtype, crop, and normalization rules without Qt.
 
