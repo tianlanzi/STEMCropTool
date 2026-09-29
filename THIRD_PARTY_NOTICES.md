@@ -20,9 +20,12 @@ component actually shipped.
       artifact.
 - [ ] pytest and pytest-qt are development-only and should not be bundled.
 
-## Future vendored source
+## Vendored source
 
-- [ ] The Phase 2 DM reader must record its exact openNCEM/ncempy provenance,
-      modifications, copyright statement, and MIT license text.
+- [x] The DM3/DM4 parser in `src/stem_crop_tool/vendor/ncempy_dm.py` is
+      adapted from the MIT-licensed `ncempy/io/dm.py` implementation in
+      openNCEM. The vendored header records the exact upstream comparison
+      commit, the immediate motif-learn source commit, and local modifications.
+      The selected MIT text is in `licenses/NCEMPY_IO_MIT.txt`.
 
-No vendored DM reader or scientific file-format code is present in Phase 0.
+Upstream project: https://github.com/ercius/openNCEM

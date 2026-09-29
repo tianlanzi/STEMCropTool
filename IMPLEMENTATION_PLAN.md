@@ -385,7 +385,35 @@ Every implementation agent must follow this protocol:
 
 ### Phase 2 — Reader layer and source metadata
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
+
+**Completion evidence:**
+
+- Added a Qt-independent `ImageSource` protocol and `ImageDocument` lifecycle
+  owner that preserves the current source when a replacement fails to open.
+- Added read-only, memory-mapped NPY sources for exact 2D and `(Z,Y,X)` 3D
+  data, with `allow_pickle=False`, dtype preservation, and explicit rejection
+  of 1D, declared 4D (including singleton 4D), complex, and non-numeric data.
+- Added Qt-codec raster sources for grayscale/indexed-grayscale PNG and
+  grayscale JPEG, with exact `uint8`/`uint16` PNG round trips and explicit
+  RGB/RGBA rejection.
+- Vendored the single-file openNCEM/ncempy DM parser from the local
+  motif-learn source, recorded the exact upstream/local commits and local
+  modifications, selected the upstream MIT option, and bundled its license.
+- Fixed partial-construction cleanup, raw-index bounds, thumbnail-aware
+  logical dataset indexing, and singleton-dimension preservation in DM
+  memory maps.
+- Added DM dataset enumeration, thumbnail exclusion, supported-dataset
+  selection, declared-dimension validation, lazy slice access, calibration
+  extraction, and read-only access to parsed tags.
+- Validated the user-provided real 2D DM3 (`2048 x 2048`, `uint32`) and DM4
+  (`1024 x 1024`, `uint32`) samples, including thumbnail skipping and `nm`
+  calibration. Real 3D DM validation remains deferred because no fixture is
+  currently available.
+- Full cumulative suite with external real-data tests: `108 passed` on Python
+  3.12.14. Without external fixtures, the same suite skips only the opt-in
+  real-DM integration test.
+- `compileall` succeeded and `pip check` reported no broken requirements.
 
 **Goal:** Open every supported input through a common lazy source interface while preserving dtype and dimensionality.
 
@@ -587,9 +615,9 @@ Every implementation agent must follow this protocol:
 - Test at minimum when samples are available:
   - one 2D DM3,
   - one 2D DM4,
-  - one 3D DM stack,
+  - one 3D DM stack (currently unavailable; keep 3D DM support provisional until a real fixture is tested),
   - calibrated data with pixel size/unit,
-  - one large NPY stack,
+  - one representative NPY stack (the current normal workload is `(8, 512, 512)`),
   - `uint16` PNG,
   - constant and non-finite NPY edge cases.
 - Compare DM shape, dtype, selected pixel values, slice order, and calibration against a trusted reference such as the existing `motif-learn` reader behavior.
@@ -608,6 +636,7 @@ Every implementation agent must follow this protocol:
 **Exit criteria:**
 
 - Real DM3 and DM4 fixtures pass documented validation.
+- A real 3D DM stack passes slice-order, lazy-access, and batch-crop validation. Until such a fixture is available, Phase 7 remains incomplete for 3D DM support even though Phase 2 development may proceed.
 - No known dtype down-conversion or off-by-one crop bug remains.
 - Resource, cancellation, and write-failure paths have tests.
 - If real DM fixtures are still unavailable, this phase cannot be marked complete and DM support cannot be advertised as release-ready.
@@ -712,10 +741,17 @@ The architecture should not prevent a future CLI, but the initial release does n
 
 ## 9. Open external inputs
 
-The implementation can begin before these arrive, but the corresponding phases cannot be fully accepted without them:
+The implementation can begin before these arrive, but the corresponding phases cannot be fully accepted without them. Current fixture status:
 
-- User-provided representative PNG/JPG/NPY/DM3/DM4 test data.
-- At least one large 3D stack for memory/performance validation.
-- A trusted expected shape/dtype/calibration description for each DM fixture.
+- Representative NPY, 2D DM3, and 2D DM4 files have been supplied and used in
+  Phase 2. Representative real PNG/JPG samples remain optional external inputs
+  for Phase 7 because deterministic synthetic codec fixtures already cover
+  their Phase 2 contracts.
+- A representative `(8, 512, 512)` NPY stack has been supplied for the normal
+  workload; larger synthetic stacks may be generated for optional stress tests.
+- Existing 2D DM expectations were cross-checked against the local motif-learn
+  reader; any future DM fixture must likewise include or derive a trusted
+  shape/dtype/calibration reference.
+- A real 3D DM stack is not currently available. This does not block Phase 2, but 3D DM support must remain explicitly unverified and cannot be advertised as release-ready until Phase 7 validates one.
 - macOS build access for Phase 9.
 - Apple signing credentials only if public notarized macOS distribution is requested.

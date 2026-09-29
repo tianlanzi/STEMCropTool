@@ -3,12 +3,17 @@
 STEMCropTool is a planned cross-platform desktop application for pixel-exact
 cropping of grayscale STEM images and image stacks.
 
-Phases 0 and 1 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
+Phases 0 through 2 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
 complete. The repository contains the application shell, early Windows
-packaging configuration, and a Qt-independent tested core for crop geometry,
-normalization, metadata contracts, and output dtype decisions. Scientific file
-reading, export encoding, and interactive crop UI are intentionally not
-implemented yet.
+packaging configuration, a Qt-independent tested core, and lazy readers for
+NPY, PNG, JPEG, DM3, and DM4 data. Export encoding and the interactive file-open
+and crop UI are intentionally reserved for later phases.
+
+The reader layer preserves source dtype and declared dimensionality. NPY and DM
+stacks are memory-mapped, grayscale PNG supports exact 8-bit and 16-bit values,
+color rasters are rejected, and DM calibration/tags remain available through
+the adapter. Real 2D DM3 and DM4 samples have been validated; real 3D DM stack
+support remains explicitly provisional until such a fixture is available.
 
 ## Development environment
 
@@ -37,6 +42,10 @@ activating the environment.
 ```powershell
 & '.\.venv\python.exe' -m pytest
 ```
+
+External DM samples are not committed. To include local real-data integration
+tests, point `STEM_CROP_TOOL_TEST_DATA` at the directory containing the DM3 and
+DM4 files before running pytest.
 
 ## Build the Windows smoke package
 
