@@ -2,10 +2,13 @@ import numpy as np
 import pytest
 
 from stem_crop_tool.core.crop import (
+    ResizeHandle,
     clamp_rect,
     crop_array,
     rect_from_drag,
+    rect_from_fields,
     resize_rect,
+    resize_rect_from_handle,
     translate_rect,
     validate_rect_within,
 )
@@ -112,12 +115,80 @@ def test_translate_rect_preserves_size_and_stays_in_bounds() -> None:
     assert translate_rect(rect, 20, -20, 10, 10) == CropRect(6, 0, 4, 5)
 
 
+@pytest.mark.parametrize(
+    "delta,expected",
+    [
+        ((-100, 0), CropRect(0, 3, 4, 5)),
+        ((100, 0), CropRect(6, 3, 4, 5)),
+        ((0, -100), CropRect(2, 0, 4, 5)),
+        ((0, 100), CropRect(2, 5, 4, 5)),
+    ],
+)
+def test_translate_rect_clamps_at_every_edge(
+    delta: tuple[int, int], expected: CropRect
+) -> None:
+    assert translate_rect(CropRect(2, 3, 4, 5), *delta, 10, 10) == expected
+
+
 def test_resize_rect_enforces_minimum_and_bounds() -> None:
     rect = CropRect(7, 8, 2, 2)
 
     assert resize_rect(rect, 0, -4, 10, 10) == CropRect(7, 8, 1, 1)
     assert resize_rect(rect, 8, 8, 10, 10) == CropRect(7, 8, 3, 2)
     assert resize_rect(rect, 8, 1, 10, 10, square=True) == CropRect(7, 8, 2, 2)
+
+
+def test_numeric_fields_preserve_position_and_shrink_size_at_edges() -> None:
+    assert rect_from_fields(8, 7, 9, 9, 10, 10) == CropRect(8, 7, 2, 3)
+    assert rect_from_fields(-5, 20, 0, -2, 10, 10) == CropRect(0, 9, 1, 1)
+
+
+@pytest.mark.parametrize(
+    "handle,boundary,expected",
+    [
+        (ResizeHandle.LEFT, (-20, 5), CropRect(0, 3, 8, 4)),
+        (ResizeHandle.RIGHT, (20, 5), CropRect(4, 3, 6, 4)),
+        (ResizeHandle.TOP, (5, -20), CropRect(4, 0, 4, 7)),
+        (ResizeHandle.BOTTOM, (5, 20), CropRect(4, 3, 4, 7)),
+        (ResizeHandle.TOP_LEFT, (1, 1), CropRect(1, 1, 7, 6)),
+        (ResizeHandle.TOP_RIGHT, (9, 1), CropRect(4, 1, 5, 6)),
+        (ResizeHandle.BOTTOM_RIGHT, (9, 9), CropRect(4, 3, 5, 6)),
+        (ResizeHandle.BOTTOM_LEFT, (1, 9), CropRect(1, 3, 7, 6)),
+    ],
+)
+def test_resize_from_every_handle_stays_bounded(
+    handle: ResizeHandle,
+    boundary: tuple[int, int],
+    expected: CropRect,
+) -> None:
+    rect = CropRect(4, 3, 4, 4)
+    assert resize_rect_from_handle(rect, handle, *boundary, 10, 10) == expected
+
+
+def test_shift_resize_from_corner_and_edge_produces_bounded_square() -> None:
+    rect = CropRect(6, 5, 3, 3)
+
+    corner = resize_rect_from_handle(
+        rect,
+        ResizeHandle.TOP_LEFT,
+        -5,
+        2,
+        10,
+        10,
+        square=True,
+    )
+    edge = resize_rect_from_handle(
+        rect,
+        ResizeHandle.RIGHT,
+        20,
+        5,
+        10,
+        10,
+        square=True,
+    )
+
+    assert corner == CropRect(1, 0, 8, 8)
+    assert edge == CropRect(6, 5, 4, 4)
 
 
 def test_validate_rect_within_rejects_out_of_bounds() -> None:

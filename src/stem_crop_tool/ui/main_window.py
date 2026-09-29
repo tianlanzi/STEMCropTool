@@ -21,8 +21,10 @@ from PySide6.QtWidgets import (
 
 from stem_crop_tool.core.readers.base import ImageDocument, ImageSource
 from stem_crop_tool.core.readers.dm import DMDatasetInfo, list_dm_datasets
+from stem_crop_tool.core.models import CropRect
 from stem_crop_tool.infrastructure.display import make_grayscale_qimage
 from stem_crop_tool.infrastructure.source_loader import open_image_source
+from stem_crop_tool.ui.crop_controls import CropControls
 from stem_crop_tool.ui.image_view import ImageView
 from stem_crop_tool.ui.stack_controls import StackControls
 from stem_crop_tool.ui.workers import DatasetLister, OpenSourceWorker, SourceOpener
@@ -70,13 +72,19 @@ class MainWindow(QMainWindow):
 
         self.image_view = ImageView()
         self.stack_controls = StackControls()
+        self.crop_controls = CropControls()
         self.stack_controls.slice_changed.connect(self.set_current_slice)
+        self.image_view.crop_changed.connect(self._on_crop_changed)
+        self.crop_controls.rect_edited.connect(self.image_view.set_crop_rect)
+        self.crop_controls.new_requested.connect(self.image_view.start_new_crop)
+        self.crop_controls.clear_requested.connect(self.image_view.clear_crop)
 
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.image_view, 1)
         layout.addWidget(self.stack_controls)
+        layout.addWidget(self.crop_controls)
         self.setCentralWidget(central)
 
         self._create_actions()
@@ -97,6 +105,10 @@ class MainWindow(QMainWindow):
     @property
     def loading_job_count(self) -> int:
         return len(self._jobs)
+
+    @property
+    def current_crop(self) -> CropRect | None:
+        return self.image_view.crop_rect
 
     def _create_actions(self) -> None:
         self.open_action = QAction("&Open...", self)
@@ -123,9 +135,13 @@ class MainWindow(QMainWindow):
         self.reset_view_action.setShortcut("R")
         self.reset_view_action.triggered.connect(self.image_view.reset_view)
 
-        self.crop_action = QAction("Create Crop", self)
-        self.crop_action.setEnabled(False)
-        self.crop_action.setToolTip("Crop selection is added in Phase 5")
+        self.crop_action = QAction("&New Crop", self)
+        self.crop_action.setShortcut("N")
+        self.crop_action.triggered.connect(self.image_view.start_new_crop)
+
+        self.clear_crop_action = QAction("&Clear Crop", self)
+        self.clear_crop_action.setShortcut(QKeySequence.StandardKey.Delete)
+        self.clear_crop_action.triggered.connect(self.image_view.clear_crop)
 
         self.export_action = QAction("Export...", self)
         self.export_action.setEnabled(False)
@@ -145,6 +161,10 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.actual_pixels_action)
         view_menu.addAction(self.reset_view_action)
 
+        crop_menu = self.menuBar().addMenu("&Crop")
+        crop_menu.addAction(self.crop_action)
+        crop_menu.addAction(self.clear_crop_action)
+
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Main", self)
         toolbar.setObjectName("main_toolbar")
@@ -157,18 +177,21 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.reset_view_action)
         toolbar.addSeparator()
         toolbar.addAction(self.crop_action)
+        toolbar.addAction(self.clear_crop_action)
         toolbar.addAction(self.export_action)
         self.addToolBar(toolbar)
 
     def _create_status_area(self) -> None:
         self.source_status_label = QLabel("No image open")
         self.zoom_status_label = QLabel("Zoom: 100%")
+        self.crop_status_label = QLabel("Crop: none")
         self.busy_indicator = QProgressBar()
         self.busy_indicator.setRange(0, 0)
         self.busy_indicator.setMaximumWidth(120)
         self.busy_indicator.setTextVisible(False)
         self.busy_indicator.hide()
         self.statusBar().addWidget(self.source_status_label, 1)
+        self.statusBar().addPermanentWidget(self.crop_status_label)
         self.statusBar().addPermanentWidget(self.zoom_status_label)
         self.statusBar().addPermanentWidget(self.busy_indicator)
 
@@ -239,6 +262,8 @@ class MainWindow(QMainWindow):
 
         self.document.replace_source(source)
         self.current_slice_index = 0
+        height, width = source.metadata.image_shape
+        self.crop_controls.set_image_size(width, height)
         self.image_view.set_frame(frame, source_index=0)
         self.stack_controls.set_slice_count(source.slice_count)
         self.stack_controls.set_current_index(0)
@@ -313,7 +338,12 @@ class MainWindow(QMainWindow):
             return
 
         self.current_slice_index = index
-        self.image_view.set_frame(frame, source_index=index, reset_view=False)
+        self.image_view.set_frame(
+            frame,
+            source_index=index,
+            reset_view=False,
+            preserve_crop=True,
+        )
         self.stack_controls.set_current_index(index)
         self._update_source_status()
 
@@ -323,9 +353,21 @@ class MainWindow(QMainWindow):
         self.document.close()
         self.current_slice_index = 0
         self.image_view.clear_image()
+        self.crop_controls.clear_image()
         self.stack_controls.set_slice_count(1)
         self.setWindowTitle("STEMCropTool")
         self.source_status_label.setText("No image open")
+        self.crop_status_label.setText("Crop: none")
+        self._update_actions()
+
+    def _on_crop_changed(self, rect: CropRect | None) -> None:
+        self.crop_controls.set_rect(rect)
+        if rect is None:
+            self.crop_status_label.setText("Crop: none")
+        else:
+            self.crop_status_label.setText(
+                f"Crop: x={rect.x}, y={rect.y}, {rect.width} × {rect.height}"
+            )
         self._update_actions()
 
     def _update_source_status(self) -> None:
@@ -358,9 +400,18 @@ class MainWindow(QMainWindow):
         self.fit_action.setEnabled(has_source)
         self.actual_pixels_action.setEnabled(has_source)
         self.reset_view_action.setEnabled(has_source)
-        # Crop and export intentionally stay disabled until Phases 5 and 6.
-        self.crop_action.setEnabled(False)
+        crop_enabled = has_source and not self._busy
+        self.crop_action.setEnabled(crop_enabled)
+        self.clear_crop_action.setEnabled(crop_enabled and self.current_crop is not None)
+        self.image_view.set_crop_enabled(crop_enabled)
+        self.crop_controls.setEnabled(crop_enabled)
+        # Export remains a disabled Phase 6 placeholder. Its readiness text
+        # still makes the no-ROI prerequisite explicit.
         self.export_action.setEnabled(False)
+        if self.current_crop is None:
+            self.export_action.setToolTip("Select a crop before exporting")
+        else:
+            self.export_action.setToolTip("Export workflow is added in Phase 6")
 
     def _present_error(self, message: str) -> None:
         self.last_error = str(message)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from numbers import Integral
+from enum import StrEnum
 
 import numpy as np
 
@@ -11,6 +12,19 @@ from stem_crop_tool.core.exceptions import (
     UnsupportedArrayShapeError,
 )
 from stem_crop_tool.core.models import CropRect
+
+
+class ResizeHandle(StrEnum):
+    """Edges and corners from which an existing crop can be resized."""
+
+    TOP_LEFT = "top_left"
+    TOP = "top"
+    TOP_RIGHT = "top_right"
+    RIGHT = "right"
+    BOTTOM_RIGHT = "bottom_right"
+    BOTTOM = "bottom"
+    BOTTOM_LEFT = "bottom_left"
+    LEFT = "left"
 
 
 def _integer(value: Integral, field_name: str) -> int:
@@ -168,6 +182,137 @@ def resize_rect(
         min(requested_width, maximum_width),
         min(requested_height, maximum_height),
     )
+
+
+def rect_from_fields(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    image_width: int,
+    image_height: int,
+) -> CropRect:
+    """Build a bounded crop from numeric fields, preserving x/y when possible.
+
+    Coordinates are clamped first. Width and height are then limited to the
+    remaining image extent, so typing a new position never silently moves that
+    position backward merely to preserve an old size.
+    """
+
+    bound_width, bound_height = _image_bounds(image_width, image_height)
+    bounded_x = _clamp(_integer(x, "x"), 0, bound_width - 1)
+    bounded_y = _clamp(_integer(y, "y"), 0, bound_height - 1)
+    bounded_width = _clamp(
+        _integer(width, "width"),
+        1,
+        bound_width - bounded_x,
+    )
+    bounded_height = _clamp(
+        _integer(height, "height"),
+        1,
+        bound_height - bounded_y,
+    )
+    return CropRect(bounded_x, bounded_y, bounded_width, bounded_height)
+
+
+def resize_rect_from_handle(
+    rect: CropRect,
+    handle: ResizeHandle | str,
+    boundary_x: int,
+    boundary_y: int,
+    image_width: int,
+    image_height: int,
+    *,
+    square: bool = False,
+) -> CropRect:
+    """Resize one crop edge/corner to an integer pixel boundary.
+
+    Corner resizing fixes the opposite corner. For Shift-constrained edge
+    resizing, the opposite edge and the top/left perpendicular edge are fixed.
+    This makes square behavior deterministic even for single-axis handles.
+    """
+
+    bound_width, bound_height = _image_bounds(image_width, image_height)
+    current = validate_rect_within(rect, bound_width, bound_height)
+    selected = ResizeHandle(handle)
+    x = _clamp(_integer(boundary_x, "boundary_x"), 0, bound_width)
+    y = _clamp(_integer(boundary_y, "boundary_y"), 0, bound_height)
+
+    corner_anchors = {
+        ResizeHandle.TOP_LEFT: (current.x1, current.y1),
+        ResizeHandle.TOP_RIGHT: (current.x, current.y1),
+        ResizeHandle.BOTTOM_RIGHT: (current.x, current.y),
+        ResizeHandle.BOTTOM_LEFT: (current.x1, current.y),
+    }
+    anchor = corner_anchors.get(selected)
+    if anchor is not None:
+        return rect_from_drag(
+            anchor[0],
+            anchor[1],
+            x,
+            y,
+            bound_width,
+            bound_height,
+            square=square,
+        )
+
+    if square:
+        if selected is ResizeHandle.LEFT:
+            side = max(abs(current.x1 - x), 1)
+            return rect_from_drag(
+                current.x1,
+                current.y,
+                x,
+                current.y + side,
+                bound_width,
+                bound_height,
+                square=True,
+            )
+        if selected is ResizeHandle.RIGHT:
+            side = max(abs(x - current.x), 1)
+            return rect_from_drag(
+                current.x,
+                current.y,
+                x,
+                current.y + side,
+                bound_width,
+                bound_height,
+                square=True,
+            )
+        if selected is ResizeHandle.TOP:
+            side = max(abs(current.y1 - y), 1)
+            return rect_from_drag(
+                current.x,
+                current.y1,
+                current.x + side,
+                y,
+                bound_width,
+                bound_height,
+                square=True,
+            )
+        side = max(abs(y - current.y), 1)
+        return rect_from_drag(
+            current.x,
+            current.y,
+            current.x + side,
+            y,
+            bound_width,
+            bound_height,
+            square=True,
+        )
+
+    if selected is ResizeHandle.LEFT:
+        new_x = min(x, current.x1 - 1)
+        return CropRect(new_x, current.y, current.x1 - new_x, current.height)
+    if selected is ResizeHandle.RIGHT:
+        new_x1 = max(x, current.x + 1)
+        return CropRect(current.x, current.y, new_x1 - current.x, current.height)
+    if selected is ResizeHandle.TOP:
+        new_y = min(y, current.y1 - 1)
+        return CropRect(current.x, new_y, current.width, current.y1 - new_y)
+
+    new_y1 = max(y, current.y + 1)
+    return CropRect(current.x, current.y, current.width, new_y1 - current.y)
 
 
 def validate_rect_within(

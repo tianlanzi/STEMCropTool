@@ -578,7 +578,29 @@ Every implementation agent must follow this protocol:
 
 ### Phase 5 — Interactive ROI and exact numeric editing
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
+
+**Completion evidence:**
+
+- Added a single permanent crop graphics item with a visible border,
+  translucent fill, and eight resize handles that remain a fixed screen size
+  across zoom levels.
+- Added deterministic nearest-pixel-boundary snapping and mouse creation in
+  every drag direction, bounded movement, edge/corner resizing, middle-button
+  pan coexistence, and Shift-constrained square creation/resizing.
+- Kept all crop calculations in the Qt-independent core through `CropRect`,
+  `ResizeHandle`, numeric-field clamping, translation, and handle-resize
+  helpers; the UI contains no competing fractional ROI state.
+- Added synchronized zero-based `x`, `y`, `width`, and `height` controls plus
+  New Crop, Clear Crop, and Delete-key behavior. File replacement clears the
+  ROI, while stack slice changes retain it exactly.
+- Added an integration contract test proving the graphics item, numeric panel,
+  NumPy crop, and JSON metadata all consume the same `CropRect` values.
+- Full cumulative suite with supplied real DM3/DM4 fixtures: `179 passed` on
+  Python 3.12.14. Without external data: `177 passed, 2 skipped`.
+- The expanded UI suite passed 10 consecutive runs (`22 passed` per run), and
+  a visual smoke check with the supplied `(8, 512, 512)` stack confirmed the
+  crop overlay, handles, stack navigation, and numeric panel layout.
 
 **Goal:** Implement one pixel-exact crop rectangle whose mouse and numeric representations always agree.
 

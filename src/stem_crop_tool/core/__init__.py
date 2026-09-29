@@ -10,10 +10,13 @@ from stem_crop_tool.core.batch import (
     suggested_single_filename,
 )
 from stem_crop_tool.core.crop import (
+    ResizeHandle,
     clamp_rect,
     crop_array,
     rect_from_drag,
+    rect_from_fields,
     resize_rect,
+    resize_rect_from_handle,
     translate_rect,
     validate_rect_within,
 )
@@ -37,6 +40,7 @@ __all__ = [
     "ExportResult",
     "ImageMetadata",
     "NormalizationMode",
+    "ResizeHandle",
     "all_slice_indices",
     "batch_item_filename",
     "clamp_rect",
@@ -46,7 +50,9 @@ __all__ = [
     "normalize_local_minmax",
     "output_dtype_for",
     "rect_from_drag",
+    "rect_from_fields",
     "resize_rect",
+    "resize_rect_from_handle",
     "suggested_single_filename",
     "translate_rect",
     "validate_rect_within",

@@ -9,8 +9,9 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QImage
 
 from stem_crop_tool.core.exceptions import DatasetSelectionRequiredError
-from stem_crop_tool.core.models import ImageMetadata
+from stem_crop_tool.core.models import CropRect, ImageMetadata
 from stem_crop_tool.core.readers.dm import DMDatasetInfo
+from stem_crop_tool.ui.crop_item import CropItem
 from stem_crop_tool.ui.main_window import (
     MainWindow,
     QMessageBox,
@@ -204,11 +205,56 @@ def test_slice_navigation_retains_zoom_and_does_not_modify_stack(qtbot) -> None:
     window.image_view.zoom_by(1.5)
     zoom = window.image_view.zoom_factor
     window.image_view.pan_by(20, 10)
+    window.image_view.set_crop_rect(CropRect(12, 15, 40, 50))
     window.set_current_slice(1)
 
     assert window.image_view.zoom_factor == zoom
+    assert window.current_crop == CropRect(12, 15, 40, 50)
     assert source.requested_indices == [0, 1]
     np.testing.assert_array_equal(stack, original)
+
+
+def test_numeric_crop_sync_clear_and_file_reopen_reset(tmp_path, qtbot) -> None:
+    first_path = tmp_path / "first.npy"
+    second_path = tmp_path / "second.npy"
+    np.save(first_path, np.zeros((100, 120), dtype=np.uint16))
+    np.save(second_path, np.zeros((40, 50), dtype=np.uint8))
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.show()
+    window.open_path(first_path)
+    _wait_for_idle(window, qtbot)
+
+    assert window.current_crop is None
+    assert not window.clear_crop_action.isEnabled()
+    assert not window.export_action.isEnabled()
+    window.image_view.set_crop_rect(CropRect(10, 20, 30, 40))
+    assert window.crop_controls.x_spin.value() == 10
+    assert window.crop_controls.height_spin.value() == 40
+    assert window.clear_crop_action.isEnabled()
+    assert "x=10" in window.crop_status_label.text()
+
+    window.crop_controls.x_spin.setValue(100)
+    assert window.current_crop == CropRect(100, 20, 20, 40)
+    window.image_view.set_crop_rect(CropRect(1, 2, 3, 4))
+    assert len(
+        [item for item in window.image_view.scene().items() if isinstance(item, CropItem)]
+    ) == 1
+
+    window.open_path(second_path)
+    _wait_for_idle(window, qtbot)
+    assert window.current_crop is None
+    assert not window.crop_controls.x_spin.isEnabled()
+    assert not window.clear_crop_action.isEnabled()
+
+    window.image_view.set_crop_rect(CropRect(2, 3, 4, 5))
+    window.crop_controls.new_button.click()
+    assert window.current_crop is None
+    window.image_view.set_crop_rect(CropRect(2, 3, 4, 5))
+    window.clear_crop_action.trigger()
+    assert window.current_crop is None
+    assert not window.crop_controls.x_spin.isEnabled()
 
 
 def test_dm_multiple_dataset_selection_reopens_selected_dataset(
