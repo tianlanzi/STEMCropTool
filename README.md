@@ -1,7 +1,8 @@
 # STEMCropTool
 
-STEMCropTool is a cross-platform desktop application for pixel-exact
-cropping of grayscale STEM images and image stacks.
+STEMCropTool is a Windows desktop application for pixel-exact cropping of
+grayscale STEM images and image stacks. Its architecture remains suitable for
+future cross-platform work, but macOS packaging is deferred to a later version.
 
 Phases 0 through 6 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
 complete. Phase 7 has completed every available validation but still awaits a

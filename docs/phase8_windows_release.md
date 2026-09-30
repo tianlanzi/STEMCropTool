@@ -80,4 +80,6 @@ On that VM:
 6. Record the Windows version and outcome here before marking Phase 8 complete.
 
 No installer is created until this gate passes. The absence of a real 3D DM
-fixture remains the separately documented Phase 7 limitation.
+fixture remains the separately documented Phase 7 limitation. After this
+Windows gate passes, the initial version has no macOS release requirement;
+macOS packaging has been moved to a later product version.

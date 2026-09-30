@@ -2,14 +2,19 @@
 
 ## 1. Purpose
 
-Build a cross-platform desktop application for exact rectangular cropping of grayscale STEM images and image stacks.
+Build a Windows desktop application for exact rectangular cropping of
+grayscale STEM images and image stacks. Preserve a cross-platform-capable
+architecture, but defer the macOS application and release work to a later
+product version.
 
 The implementation must proceed phase by phase. An agent working on a phase must finish that phase's tests and exit criteria before starting the next phase. Do not silently broaden the supported formats or add unrelated UI features.
 
 Primary target:
 
 - Windows desktop application distributed as a double-clickable executable/application directory.
-- Shared source code that can also be built as a macOS `.app`.
+- Windows is the only packaging and release target for the initial version.
+- Keep shared code portable where practical, but do not implement, test, sign,
+  or distribute a macOS `.app` in the initial version.
 - English-only UI for the initial release.
 
 ## 2. Authoritative product decisions
@@ -821,11 +826,14 @@ Every implementation agent must follow this protocol:
 - The release artifact and build instructions are reproducible.
 - No `--onefile` requirement is imposed for the initial release.
 
-### Phase 9 — macOS build, signing path, and cross-platform release checks
+### Deferred version milestone — macOS build, signing, and cross-platform release checks
 
-**Status:** Not started
+**Status:** Deferred by product decision on 2026-09-30; explicitly out of scope for the initial Windows version
 
-**Goal:** Produce and validate a macOS `.app` from the same source tree.
+This is not the next phase after Phase 8 and must not be started by an agent
+unless the user explicitly opens a later macOS version milestone.
+
+**Future goal:** Produce and validate a macOS `.app` from the same source tree.
 
 **Tasks:**
 
@@ -846,7 +854,9 @@ Every implementation agent must follow this protocol:
 
 ## 6. Required test matrix
 
-The following matrix is cumulative. A later phase must not regress earlier rows.
+The following matrix is cumulative. A later phase must not regress earlier
+rows. The future macOS row becomes mandatory only when the user explicitly
+opens that later version milestone.
 
 | Area | Required cases |
 |---|---|
@@ -861,7 +871,8 @@ The following matrix is cumulative. A later phase must not regress earlier rows.
 | Export | raw/normalized NPY, raw 8/16-bit PNG, normalized PNG, invalid raw PNG dtype |
 | Batch | current/range/all, naming, order, progress, cancellation, failure cleanup |
 | Metadata | crop coordinates, slice index, dtype, normalization, calibration, null unknowns |
-| Packaging | source run, PyInstaller run, clean Windows, clean macOS |
+| Packaging — current version | source run, PyInstaller run, clean Windows |
+| Packaging — future macOS version | `.app` build and clean macOS validation |
 
 ## 7. Release-blocking invariants
 
@@ -876,7 +887,9 @@ The application is not release-ready if any of the following is false:
 - 4D data is rejected based on declared dimensionality.
 - DM license attribution and Qt/NumPy notices are included.
 - Real DM3/DM4 samples have been validated.
-- Packaged builds have been tested outside the development environment.
+- The current-version Windows packaged build has been tested outside the
+  development environment. Future macOS release readiness has its own deferred
+  validation gate and does not block the initial Windows version.
 
 ## 8. Explicit non-goals for the initial release
 
@@ -907,5 +920,8 @@ The implementation can begin before these arrive, but the corresponding phases c
   reader; any future DM fixture must likewise include or derive a trusted
   shape/dtype/calibration reference.
 - A real 3D DM stack is not currently available. This does not block Phase 2, but 3D DM support must remain explicitly unverified and cannot be advertised as release-ready until Phase 7 validates one.
-- macOS build access for Phase 9.
+
+Inputs intentionally deferred to a later macOS version milestone:
+
+- macOS build hardware or CI-runner access.
 - Apple signing credentials only if public notarized macOS distribution is requested.
