@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen
 from PySide6.QtWidgets import QGraphicsObject, QStyleOptionGraphicsItem, QWidget
 
@@ -14,11 +14,13 @@ class CropItem(QGraphicsObject):
     """Paint one crop and its eight resize handles in source coordinates."""
 
     HANDLE_PIXELS = 9.0
+    CENTER_CROSS_ARM_PIXELS = 7.0
 
     def __init__(self, rect: CropRect) -> None:
         super().__init__()
         self._rect = rect
         self._handle_size = self.HANDLE_PIXELS
+        self._center_cross_arm = self.CENTER_CROSS_ARM_PIXELS
         self.setZValue(10.0)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
 
@@ -40,6 +42,7 @@ class CropItem(QGraphicsObject):
             return
         self.prepareGeometryChange()
         self._handle_size = size
+        self._center_cross_arm = self.CENTER_CROSS_ARM_PIXELS / scale
         self.update()
 
     def crop_qrect(self) -> QRectF:
@@ -64,6 +67,22 @@ class CropItem(QGraphicsObject):
             ResizeHandle.BOTTOM_LEFT: QPointF(left, bottom),
             ResizeHandle.LEFT: QPointF(left, center_y),
         }
+
+    def crop_center(self) -> QPointF:
+        """Return the exact geometric center in source-pixel coordinates."""
+
+        rect = self._rect
+        return QPointF(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
+
+    def center_cross_lines(self) -> tuple[QLineF, QLineF]:
+        """Return constant-view-size horizontal and vertical center arms."""
+
+        center = self.crop_center()
+        arm = self._center_cross_arm
+        return (
+            QLineF(center.x() - arm, center.y(), center.x() + arm, center.y()),
+            QLineF(center.x(), center.y() - arm, center.x(), center.y() + arm),
+        )
 
     def handle_rects(self) -> dict[ResizeHandle, QRectF]:
         half = self._handle_size / 2.0
@@ -98,7 +117,7 @@ class CropItem(QGraphicsObject):
         return self.crop_qrect().contains(scene_position)
 
     def boundingRect(self) -> QRectF:  # noqa: N802
-        margin = self._handle_size / 2.0 + 2.0
+        margin = max(self._handle_size / 2.0, self._center_cross_arm) + 2.0
         return self.crop_qrect().adjusted(-margin, -margin, margin, margin)
 
     def paint(
@@ -112,6 +131,15 @@ class CropItem(QGraphicsObject):
         painter.setPen(border)
         painter.setBrush(QBrush(QColor(255, 210, 0, 28)))
         painter.drawRect(self.crop_qrect())
+
+        center_shadow = QPen(QColor(20, 20, 20, 210), 4.0)
+        center_shadow.setCosmetic(True)
+        painter.setPen(center_shadow)
+        painter.drawLines(self.center_cross_lines())
+        center_pen = QPen(QColor(255, 55, 55), 2.0)
+        center_pen.setCosmetic(True)
+        painter.setPen(center_pen)
+        painter.drawLines(self.center_cross_lines())
 
         handle_pen = QPen(QColor(30, 30, 30), 1.0)
         handle_pen.setCosmetic(True)

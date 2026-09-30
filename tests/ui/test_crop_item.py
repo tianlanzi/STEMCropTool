@@ -30,3 +30,20 @@ def test_crop_item_keeps_handles_constant_in_view_pixels() -> None:
 
     assert size_at_half * 0.5 == CropItem.HANDLE_PIXELS
     assert size_at_four * 4.0 == CropItem.HANDLE_PIXELS
+
+
+def test_crop_item_center_cross_is_geometric_and_constant_in_view_pixels() -> None:
+    item = CropItem(CropRect(10, 20, 31, 41))
+
+    assert item.crop_center() == QPointF(25.5, 40.5)
+
+    item.set_view_scale(0.5)
+    horizontal_at_half, vertical_at_half = item.center_cross_lines()
+    item.set_view_scale(4.0)
+    horizontal_at_four, vertical_at_four = item.center_cross_lines()
+
+    expected_length = CropItem.CENTER_CROSS_ARM_PIXELS * 2.0
+    assert horizontal_at_half.length() * 0.5 == expected_length
+    assert vertical_at_half.length() * 0.5 == expected_length
+    assert horizontal_at_four.length() * 4.0 == expected_length
+    assert vertical_at_four.length() * 4.0 == expected_length
