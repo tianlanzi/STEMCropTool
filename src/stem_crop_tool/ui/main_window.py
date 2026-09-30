@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QMimeData, QThread, Qt, Signal, Slot
+from PySide6.QtCore import (
+    QCoreApplication,
+    QMimeData,
+    QSize,
+    QThread,
+    Qt,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
@@ -24,6 +32,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QProgressDialog,
+    QStyle,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -120,8 +129,10 @@ class MainWindow(QMainWindow):
         self.crop_controls.clear_requested.connect(self.image_view.clear_crop)
 
         central = QWidget()
+        central.setObjectName("central_panel")
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 7)
+        layout.setSpacing(7)
         layout.addWidget(self.image_view, 1)
         layout.addWidget(self.stack_controls)
         layout.addWidget(self.crop_controls)
@@ -160,11 +171,19 @@ class MainWindow(QMainWindow):
 
     def _create_actions(self) -> None:
         self.open_action = QAction("&Open...", self)
+        self.open_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        )
         self.open_action.setShortcut(QKeySequence.StandardKey.Open)
+        self.open_action.setToolTip("Open an image or stack (Ctrl+O)")
         self.open_action.triggered.connect(self.choose_file)
 
         self.close_action = QAction("&Close Image", self)
+        self.close_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton)
+        )
         self.close_action.setShortcut(QKeySequence.StandardKey.Close)
+        self.close_action.setToolTip("Close the current image (Ctrl+W)")
         self.close_action.triggered.connect(self.close_document)
 
         self.exit_action = QAction("E&xit", self)
@@ -173,25 +192,39 @@ class MainWindow(QMainWindow):
 
         self.fit_action = QAction("&Fit to Window", self)
         self.fit_action.setShortcut("F")
+        self.fit_action.setToolTip("Fit the image to the window (F)")
         self.fit_action.triggered.connect(self.image_view.fit_to_window)
 
         self.actual_pixels_action = QAction("&100%", self)
         self.actual_pixels_action.setShortcut("1")
+        self.actual_pixels_action.setToolTip("Show one screen pixel per image pixel (1)")
         self.actual_pixels_action.triggered.connect(self.image_view.actual_pixels)
 
         self.reset_view_action = QAction("&Reset View", self)
+        self.reset_view_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        )
         self.reset_view_action.setShortcut("R")
+        self.reset_view_action.setToolTip("Reset zoom and position (R)")
         self.reset_view_action.triggered.connect(self.image_view.reset_view)
 
         self.crop_action = QAction("&New Crop", self)
         self.crop_action.setShortcut("N")
+        self.crop_action.setToolTip("Draw a new crop; hold Shift for a square (N)")
         self.crop_action.triggered.connect(self.image_view.start_new_crop)
 
         self.clear_crop_action = QAction("&Clear Crop", self)
+        self.clear_crop_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+        )
         self.clear_crop_action.setShortcut(QKeySequence.StandardKey.Delete)
+        self.clear_crop_action.setToolTip("Remove the current crop (Delete)")
         self.clear_crop_action.triggered.connect(self.image_view.clear_crop)
 
         self.export_action = QAction("Export...", self)
+        self.export_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        )
         self.export_action.setShortcut(QKeySequence.StandardKey.Save)
         self.export_action.triggered.connect(self.show_export_dialog)
 
@@ -217,6 +250,9 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Main", self)
         toolbar.setObjectName("main_toolbar")
         toolbar.setMovable(False)
+        toolbar.setFloatable(False)
+        toolbar.setIconSize(QSize(18, 18))
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         toolbar.addAction(self.open_action)
         toolbar.addAction(self.close_action)
         toolbar.addSeparator()
@@ -230,7 +266,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
     def _create_status_area(self) -> None:
-        self.source_status_label = QLabel("No image open")
+        self.source_status_label = QLabel("Ready")
         self.zoom_status_label = QLabel("Zoom: 100%")
         self.crop_status_label = QLabel("Crop: none")
         self.busy_indicator = QProgressBar()
@@ -274,8 +310,10 @@ class MainWindow(QMainWindow):
         path = self._supported_drop_path(event.mimeData())
         if path is not None and self._file_drop_is_available():
             event.acceptProposedAction()
+            self.image_view.set_drop_active(True)
             self.statusBar().showMessage(f"Drop to open {path.name}")
         else:
+            self.image_view.set_drop_active(False)
             event.ignore()
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802
@@ -283,14 +321,17 @@ class MainWindow(QMainWindow):
         if path is not None and self._file_drop_is_available():
             event.acceptProposedAction()
         else:
+            self.image_view.set_drop_active(False)
             event.ignore()
 
     def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:  # noqa: N802
+        self.image_view.set_drop_active(False)
         if not self._busy:
             self.statusBar().clearMessage()
         event.accept()
 
     def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
+        self.image_view.set_drop_active(False)
         path = self._supported_drop_path(event.mimeData())
         if path is None or not self._file_drop_is_available():
             event.ignore()
@@ -445,7 +486,7 @@ class MainWindow(QMainWindow):
         self.crop_controls.clear_image()
         self.stack_controls.set_slice_count(1)
         self.setWindowTitle("STEMCropTool")
-        self.source_status_label.setText("No image open")
+        self.source_status_label.setText("Ready")
         self.crop_status_label.setText("Crop: none")
         self._update_actions()
 
@@ -462,7 +503,7 @@ class MainWindow(QMainWindow):
     def _update_source_status(self) -> None:
         source = self.document.source
         if source is None:
-            self.source_status_label.setText("No image open")
+            self.source_status_label.setText("Ready")
             return
         height, width = source.metadata.image_shape
         details = f"{source.metadata.source_name} | {width} × {height} | {source.dtype}"
@@ -626,7 +667,10 @@ class MainWindow(QMainWindow):
         self.clear_crop_action.setEnabled(crop_enabled and self.current_crop is not None)
         self.image_view.set_crop_enabled(crop_enabled)
         self.crop_controls.setEnabled(crop_enabled)
+        self.crop_controls.setVisible(has_source)
         self.stack_controls.setEnabled(has_source and not operation_active)
+        self.crop_status_label.setVisible(has_source)
+        self.zoom_status_label.setVisible(has_source)
         self.export_action.setEnabled(
             has_source and self.current_crop is not None and not operation_active
         )

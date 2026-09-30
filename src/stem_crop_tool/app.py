@@ -16,6 +16,7 @@ from stem_crop_tool.release_self_test import (
     write_failure_report,
 )
 from stem_crop_tool.ui.main_window import MainWindow
+from stem_crop_tool.ui.theme import APPLICATION_STYLESHEET
 
 
 SMOKE_TEST_TIMEOUT_ENV = "STEM_CROP_TOOL_SMOKE_TEST_MS"
@@ -35,6 +36,7 @@ def create_application(argv: Sequence[str] | None = None) -> QApplication:
         app = existing
     app.setApplicationName("STEMCropTool")
     app.setOrganizationName("STEMCropTool")
+    app.setStyleSheet(APPLICATION_STYLESHEET)
     icon = QIcon(str(ICON_PATH))
     if not icon.isNull():
         app.setWindowIcon(icon)

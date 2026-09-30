@@ -3,9 +3,41 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from PySide6.QtCore import QPointF, Qt
+from PySide6.QtWidgets import QLabel
 
 from stem_crop_tool.core.models import CropRect
 from stem_crop_tool.ui.image_view import ImageView
+
+
+def test_empty_state_tracks_image_lifecycle(qtbot) -> None:
+    view = ImageView()
+    view.resize(640, 480)
+    qtbot.addWidget(view)
+    view.show()
+
+    assert view.empty_state.isVisible()
+    title = view.empty_state.findChild(QLabel, "empty_state_title")
+    assert title is not None
+    assert title.text() == "Drop a STEM image here"
+
+    view.set_image(np.zeros((20, 30), dtype=np.uint8))
+    assert not view.empty_state.isVisible()
+
+    view.clear_image()
+    assert view.empty_state.isVisible()
+
+
+def test_drop_highlight_is_exposed_as_a_style_property(qtbot) -> None:
+    view = ImageView()
+    qtbot.addWidget(view)
+
+    view.set_drop_active(True)
+    assert view.property("dropActive") is True
+    assert view.empty_state.property("dropActive") is True
+
+    view.set_drop_active(False)
+    assert view.property("dropActive") is False
+    assert view.empty_state.property("dropActive") is False
 
 
 def test_actual_pixels_zoom_and_pan_preserve_source(qtbot) -> None:

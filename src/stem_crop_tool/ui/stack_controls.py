@@ -13,6 +13,7 @@ class StackControls(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setObjectName("stack_controls")
         self._slice_count = 1
         self.label = QLabel("Slice")
         self.slider = QSlider(Qt.Orientation.Horizontal)
@@ -20,7 +21,7 @@ class StackControls(QWidget):
         self.position_label = QLabel("1 / 1")
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(12, 7, 12, 7)
         layout.addWidget(self.label)
         layout.addWidget(self.slider, 1)
         layout.addWidget(self.spin_box)

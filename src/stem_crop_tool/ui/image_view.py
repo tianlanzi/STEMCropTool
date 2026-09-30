@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
+    QColor,
+    QIcon,
     QKeyEvent,
     QMouseEvent,
     QPixmap,
     QResizeEvent,
     QWheelEvent,
 )
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
+from PySide6.QtWidgets import (
+    QGraphicsPixmapItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
 
 from stem_crop_tool.core.crop import (
     ResizeHandle,
@@ -37,6 +47,7 @@ class ImageView(QGraphicsView):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setObjectName("image_view")
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
         self._pixmap_item = QGraphicsPixmapItem()
@@ -60,7 +71,7 @@ class ImageView(QGraphicsView):
         self._fit_mode = True
 
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setBackgroundBrush(Qt.GlobalColor.darkGray)
+        self.setBackgroundBrush(QColor("#272c31"))
         self.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse
         )
@@ -69,6 +80,66 @@ class ImageView(QGraphicsView):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.setRenderHints(self.renderHints())
+        self.empty_state = self._create_empty_state()
+        self._position_empty_state()
+
+    def _create_empty_state(self) -> QWidget:
+        panel = QWidget(self.viewport())
+        panel.setObjectName("empty_state")
+        panel.setProperty("dropActive", False)
+        panel.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        panel.setFixedSize(400, 210)
+
+        icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_path = Path(__file__).resolve().parents[1] / "assets" / "app_icon.svg"
+        icon = QIcon(str(icon_path))
+        if not icon.isNull():
+            icon_label.setPixmap(icon.pixmap(QSize(46, 46)))
+
+        title = QLabel("Drop a STEM image here")
+        title.setObjectName("empty_state_title")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle = QLabel("or choose Open from the toolbar")
+        subtitle.setObjectName("empty_state_subtitle")
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        formats = QLabel("NPY  ·  PNG  ·  JPEG  ·  DM3  ·  DM4")
+        formats.setObjectName("empty_state_formats")
+        formats.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(7)
+        layout.addStretch(1)
+        layout.addWidget(icon_label)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+        layout.addSpacing(5)
+        layout.addWidget(formats)
+        layout.addStretch(1)
+        panel.show()
+        return panel
+
+    def _position_empty_state(self) -> None:
+        if not hasattr(self, "empty_state"):
+            return
+        viewport_rect = self.viewport().rect()
+        size = self.empty_state.size()
+        x = max(0, (viewport_rect.width() - size.width()) // 2)
+        y = max(0, (viewport_rect.height() - size.height()) // 2)
+        self.empty_state.move(x, y)
+
+    def set_drop_active(self, active: bool) -> None:
+        """Highlight the empty view while a supported file is dragged over it."""
+
+        active = bool(active)
+        self.setProperty("dropActive", active)
+        self.empty_state.setProperty("dropActive", active)
+        self.setBackgroundBrush(QColor("#1f3b3d" if active else "#272c31"))
+        for widget in (self, self.empty_state):
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            widget.update()
 
     @property
     def source_index(self) -> int | None:
@@ -122,6 +193,7 @@ class ImageView(QGraphicsView):
         self._source_index = int(source_index)
         self._pixmap_item.setPixmap(pixmap)
         self._scene.setSceneRect(self._pixmap_item.boundingRect())
+        self.empty_state.hide()
         if reset_view:
             self.fit_to_window()
         else:
@@ -135,6 +207,8 @@ class ImageView(QGraphicsView):
         self._scene.setSceneRect(0.0, 0.0, 0.0, 0.0)
         self.resetTransform()
         self._fit_mode = True
+        self.empty_state.show()
+        self._position_empty_state()
         self.zoom_changed.emit(1.0)
 
     def set_crop_enabled(self, enabled: bool) -> None:
@@ -326,6 +400,7 @@ class ImageView(QGraphicsView):
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
         super().resizeEvent(event)
+        self._position_empty_state()
         if self._fit_mode and self.has_image:
             self.fit_to_window()
 

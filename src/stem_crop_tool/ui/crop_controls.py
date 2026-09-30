@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
 )
@@ -27,6 +28,7 @@ class CropControls(QGroupBox):
 
     def __init__(self, parent=None) -> None:
         super().__init__("Crop (source pixels)", parent)
+        self.setObjectName("crop_controls")
         self._image_size: tuple[int, int] | None = None
         self._rect: CropRect | None = None
 
@@ -41,6 +43,7 @@ class CropControls(QGroupBox):
         self.new_button = QPushButton("New Crop")
         self.clear_button = QPushButton("Clear")
         self.summary_label = QLabel("No selection")
+        self.summary_label.setObjectName("crop_summary")
 
         field_row = QHBoxLayout()
         field_row.setSpacing(6)
@@ -56,12 +59,15 @@ class CropControls(QGroupBox):
                 field_row.addSpacing(12)
             label.setBuddy(spin)
             field_row.addWidget(label)
-            field_row.addWidget(spin, 1)
+            field_row.addWidget(spin)
+        field_row.addStretch(1)
         field_row.addSpacing(12)
         field_row.addWidget(self.new_button)
         field_row.addWidget(self.clear_button)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 9)
+        layout.setSpacing(5)
         layout.addLayout(field_row)
         layout.addWidget(self.summary_label)
 
@@ -76,6 +82,9 @@ class CropControls(QGroupBox):
         spin = QSpinBox()
         spin.setObjectName(name)
         spin.setKeyboardTracking(False)
+        spin.setMinimumWidth(96)
+        spin.setMaximumWidth(150)
+        spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         return spin
 
     @property

@@ -17,6 +17,7 @@ def test_runtime_dependencies_and_package_import() -> None:
 def test_main_window_opens_and_closes(qtbot) -> None:
     app = create_application([])
     assert not app.windowIcon().isNull()
+    assert "QToolBar#main_toolbar" in app.styleSheet()
 
     window = MainWindow()
     qtbot.addWidget(window)

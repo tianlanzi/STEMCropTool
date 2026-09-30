@@ -95,19 +95,25 @@ def test_single_supported_file_drop_opens_through_normal_worker(
     assert window.acceptDrops()
     assert not window.image_view.acceptDrops()
     assert not window.image_view.viewport().acceptDrops()
+    assert not window.crop_controls.isVisible()
+    assert not window.zoom_status_label.isVisible()
 
     drag_event = _drag_enter_event(mime_data)
     window.dragEnterEvent(drag_event)
     assert drag_event.isAccepted()
+    assert window.image_view.property("dropActive") is True
     assert path.name in window.statusBar().currentMessage()
 
     drop_event = _drop_event(mime_data)
     window.dropEvent(drop_event)
     assert drop_event.isAccepted()
+    assert window.image_view.property("dropActive") is False
     _wait_for_idle(window, qtbot)
 
     assert window.current_source is not None
     assert window.current_source.path == path
+    assert window.crop_controls.isVisible()
+    assert window.zoom_status_label.isVisible()
     np.testing.assert_array_equal(window.current_source.get_slice(), expected)
 
 
