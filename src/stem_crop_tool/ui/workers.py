@@ -31,6 +31,7 @@ class OpenSourceWorker(QThread):
     opened = Signal(int, object)
     selection_required = Signal(int, str, object)
     failed = Signal(int, str)
+
     def __init__(
         self,
         request_id: int,

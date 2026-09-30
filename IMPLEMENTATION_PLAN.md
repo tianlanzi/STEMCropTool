@@ -703,7 +703,7 @@ Every implementation agent must follow this protocol:
 
 ### Phase 7 — Real-data validation, performance, and robustness
 
-**Status:** Not started
+**Status:** In progress — all available work completed 2026-09-30; awaiting a real 3D DM fixture
 
 **Goal:** Validate the complete application against representative STEM data and harden failure paths.
 
@@ -725,6 +725,34 @@ Every implementation agent must follow this protocol:
 - Harden corrupted/truncated file errors, permission errors, full disk/write failure, invalid destinations, and stale memmap/resource cleanup.
 - Review all dialogs/messages for clear English wording.
 - Run the complete automated suite repeatedly and address flaky threading/UI tests.
+
+**Progress and evidence (2026-09-30):**
+
+- Added a non-committed external-fixture convention plus a committed manifest
+  containing filenames, byte sizes, SHA-256 digests, shapes, dtypes,
+  calibration, and trusted sample pixels.
+- Validated the supplied 2D DM3 and DM4 against the local motif-learn
+  `_dm_ncempy.py` reader at commit
+  `fd1565605d96a380c6cc8061c8b573084c7b5915`. Shape, dtype, calibration, and
+  selected values match.
+- Validated the supplied `(8, 512, 512)` float32 NPY stack, including exact
+  axis-0 slice order and same-ROI batch output for all eight slices.
+- Existing and new tests cover exact `uint16` PNG round trips, file-backed
+  constant/non-finite NPY behavior, corrupted/truncated inputs, permission and
+  full-disk failures, invalid destinations, cancellation, atomic temporary-file
+  cleanup, and NPY/DM mapping cleanup after both success and failure.
+- Added an automated logical-stack lifetime test showing that batch export does
+  not retain the full stack, plus a reproducible local benchmark. On the
+  recorded Windows system, the normal eight-slice stack exported in 73.8 ms
+  with a sampled 1,122,304-byte working-set increase. Full hardware, fixture,
+  and timing details are in `docs/phase7_validation.md`.
+- The complete suite passed five consecutive real-data runs (`200 passed` per
+  run). The combined UI/integration suite passed ten additional consecutive
+  runs (`39 passed` per run). Without external fixtures, the final expected
+  result is `195 passed, 5 skipped`.
+- A real 3D DM stack is still unavailable. Phase 7 therefore remains in
+  progress and DM stack support remains provisional, exactly as required by
+  the exit criteria.
 
 **Performance targets:**
 

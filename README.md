@@ -1,15 +1,13 @@
 # STEMCropTool
 
-STEMCropTool is a planned cross-platform desktop application for pixel-exact
+STEMCropTool is a cross-platform desktop application for pixel-exact
 cropping of grayscale STEM images and image stacks.
 
-Phases 0 through 3 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
-complete. The repository contains the application shell, early Windows
-packaging configuration, a Qt-independent tested core, and lazy readers for
-NPY, PNG, JPEG, DM3, and DM4 data. It also contains a tested streaming export
-engine for raw/normalized NPY and PNG output, JSON sidecars, and batch
-manifests. The interactive file-open and crop UI are intentionally reserved for
-later phases.
+Phases 0 through 6 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
+complete. The application provides lazy readers for NPY, PNG, JPEG, DM3, and
+DM4 data; zoom/pan and stack navigation; a movable, resizable pixel-exact crop;
+and background single or batch export to raw/normalized NPY and PNG. Exports
+include JSON sidecars or batch manifests and can be cancelled from the UI.
 
 The reader layer preserves source dtype and declared dimensionality. NPY and DM
 stacks are memory-mapped, grayscale PNG supports exact 8-bit and 16-bit values,
@@ -52,9 +50,15 @@ activating the environment.
 & '.\.venv\python.exe' -m pytest
 ```
 
-External DM samples are not committed. To include local real-data integration
-tests, point `STEM_CROP_TOOL_TEST_DATA` at the directory containing the DM3 and
-DM4 files before running pytest.
+External microscopy samples are not committed. To include local real-data
+integration tests, point `STEM_CROP_TOOL_TEST_DATA` at the fixture directory
+before running pytest. The expected fixture identities and reference values are
+documented in `tests/fixtures/external/manifest.json`.
+
+Phase 7 validation results and the reproducible performance command are in
+`docs/phase7_validation.md`. Real 2D DM3 and DM4 data are validated against the
+local motif-learn reference reader. Real 3D DM stack support remains provisional
+because no representative fixture is currently available.
 
 ## Build the Windows smoke package
 

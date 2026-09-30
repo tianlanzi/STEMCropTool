@@ -117,8 +117,19 @@ def write_json_atomic(
     """Write deterministic UTF-8 JSON through the atomic path helper."""
 
     with atomic_output_path(destination, overwrite=overwrite) as temporary:
-        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
-            json.dump(payload, stream, ensure_ascii=False, indent=2, sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
+        try:
+            with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+                json.dump(
+                    payload,
+                    stream,
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+        except OSError as exc:
+            raise ExportWriteError(
+                f"could not write metadata '{Path(destination).name}': {exc}"
+            ) from exc

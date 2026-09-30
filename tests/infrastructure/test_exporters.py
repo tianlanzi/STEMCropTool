@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import weakref
 
 import numpy as np
 import pytest
@@ -440,3 +441,47 @@ def test_mid_batch_failure_keeps_completed_files_and_removes_partial_one(
     assert not (destination / "stack_z0001_crop.npy").exists()
     assert not (destination / "manifest.json").exists()
     assert list(destination.glob(".*.tmp")) == []
+
+
+def test_large_logical_batch_keeps_source_slice_lifetime_bounded(tmp_path) -> None:
+    class GeneratedStackSource:
+        def __init__(self, slice_count: int) -> None:
+            self.shape = (slice_count, 64, 64)
+            self.dtype = np.dtype(np.float32)
+            self.ndim = 3
+            self.slice_count = slice_count
+            self.metadata = ImageMetadata(
+                "generated.npy",
+                "npy",
+                self.shape,
+                self.dtype,
+            )
+            self.references: list[weakref.ReferenceType[np.ndarray]] = []
+            self.max_live_slices = 0
+
+        def get_slice(self, index: int = 0) -> np.ndarray:
+            self.references = [ref for ref in self.references if ref() is not None]
+            image = np.full((64, 64), index, dtype=np.float32)
+            self.references.append(weakref.ref(image))
+            self.max_live_slices = max(
+                self.max_live_slices,
+                sum(ref() is not None for ref in self.references),
+            )
+            return image
+
+        def close(self) -> None:
+            pass
+
+    source = GeneratedStackSource(40)
+    result = export_source(
+        source,
+        _request(
+            tmp_path / "batch",
+            output_format=ExportFormat.NPY,
+            crop=CropRect(0, 0, 32, 32),
+            slice_indices=tuple(range(source.slice_count)),
+        ),
+    )
+
+    assert len(result.output_paths) == source.slice_count
+    assert source.max_live_slices <= 2

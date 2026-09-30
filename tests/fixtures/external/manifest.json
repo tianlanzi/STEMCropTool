@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "dm_reader": "motif-learn/mtflearn/io/_dm_ncempy.py",
+    "motif_learn_commit": "fd1565605d96a380c6cc8061c8b573084c7b5915"
+  },
+  "fixtures": [
+    {
+      "filename": "2H3R_single_image_data.npy",
+      "kind": "npy_image",
+      "size_bytes": 739728,
+      "sha256": "7ae642a9b4ba0e83cb2eba441d591b50d15d0430890f15aa8e46c7f4c92861d1",
+      "shape": [430, 430],
+      "dtype": "float32",
+      "samples": [
+        {"index": [0, 0], "value": 0.2527446448802948},
+        {"index": [215, 215], "value": 0.1939811259508133},
+        {"index": [429, 429], "value": 0.32630303502082825}
+      ]
+    },
+    {
+      "filename": "3#_MoSSe_215.dm3",
+      "kind": "dm_image",
+      "size_bytes": 17379548,
+      "sha256": "eff2993e4bd4b0ff0856ab943f6fb759a283991d87dba3021030bd9afa08dab3",
+      "dataset_index": 0,
+      "shape": [2048, 2048],
+      "dtype": "uint32",
+      "pixel_size_xy": [0.00962484534829855, 0.00962484534829855],
+      "pixel_unit_xy": ["nm", "nm"],
+      "samples": [
+        {"index": [0, 0], "value": 406444},
+        {"index": [1024, 1024], "value": 403635},
+        {"index": [2047, 2047], "value": 409623}
+      ]
+    },
+    {
+      "filename": "MoS2-9C_0729_HAADF_80K.dm4",
+      "kind": "dm_image",
+      "size_bytes": 4803092,
+      "sha256": "94243c405d0bef3dc83ef455de49141ae857306c567ef50474f095000fb03bf7",
+      "dataset_index": 0,
+      "shape": [1024, 1024],
+      "dtype": "uint32",
+      "pixel_size_xy": [0.012997714802622795, 0.012997714802622795],
+      "pixel_unit_xy": ["nm", "nm"],
+      "samples": [
+        {"index": [0, 0], "value": 8946},
+        {"index": [512, 512], "value": 40297},
+        {"index": [1023, 1023], "value": 28362}
+      ]
+    },
+    {
+      "filename": "random_stack_8x512x512_float32.npy",
+      "kind": "npy_stack",
+      "size_bytes": 8388736,
+      "sha256": "a3002d2774f9dfec0c5b4f0bf992a2ed983b3ca09c904e2194d348fcb7a6940d",
+      "shape": [8, 512, 512],
+      "dtype": "float32",
+      "samples": [
+        {"index": [0, 0, 0], "value": 0.08925092220306396},
+        {"index": [4, 256, 256], "value": 0.3965914845466614},
+        {"index": [7, 511, 511], "value": 0.34106260538101196}
+      ]
+    }
+  ]
+}

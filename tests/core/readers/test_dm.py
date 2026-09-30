@@ -230,6 +230,29 @@ def test_dm_rejects_singleton_4d_dataset(tmp_path, monkeypatch) -> None:
         DMImageSource(path)
 
 
+def test_dm_shape_mismatch_closes_mapping_and_reader(tmp_path, monkeypatch) -> None:
+    path = tmp_path / "mismatch.dm4"
+    path.write_bytes(np.arange(4, dtype=np.uint8).tobytes())
+    fake = FakeDMReader(
+        path,
+        data_shapes=[2],
+        x_sizes=[2],
+        y_sizes=[2],
+        z_sizes=[1],
+        z2_sizes=[1],
+        data_types=[6],
+    )
+    mapped = np.memmap(path, dtype=np.uint8, mode="r", shape=(1, 4))
+    fake.getMemmap = lambda _index: mapped
+    monkeypatch.setattr(dm_reader, "_open_reader", lambda _: fake)
+
+    with pytest.raises(SourceOpenError, match="shape does not match"):
+        DMImageSource(path)
+
+    assert mapped._mmap.closed
+    assert fake.closed
+
+
 def test_malformed_dm_file_has_user_facing_open_error(tmp_path) -> None:
     path = tmp_path / "broken.dm4"
     path.write_bytes(b"not a DM file")

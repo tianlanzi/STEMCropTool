@@ -81,6 +81,15 @@ def test_npy_disables_pickle_and_rejects_malformed_files(tmp_path) -> None:
         NpyImageSource(malformed_path)
 
 
+def test_npy_rejects_truncated_data_payload(tmp_path) -> None:
+    path = tmp_path / "truncated.npy"
+    np.save(path, np.arange(256, dtype=np.uint16).reshape(16, 16))
+    path.write_bytes(path.read_bytes()[:-16])
+
+    with pytest.raises(SourceOpenError, match="could not open NPY file"):
+        NpyImageSource(path)
+
+
 def test_npy_slice_bounds_and_close_are_explicit(tmp_path) -> None:
     path = tmp_path / "stack.npy"
     np.save(path, np.zeros((2, 3, 4), dtype=np.uint8))
@@ -111,3 +120,15 @@ def test_npy_mapping_closes_cleanly_and_file_can_be_reopened(tmp_path) -> None:
 
     with NpyImageSource(moved_path) as second:
         np.testing.assert_array_equal(second.get_slice(), expected)
+
+
+def test_rejected_npy_shape_releases_mapping_for_file_operations(tmp_path) -> None:
+    path = tmp_path / "four_dimensional.npy"
+    moved_path = tmp_path / "moved.npy"
+    np.save(path, np.zeros((1, 2, 3, 4), dtype=np.uint8))
+
+    with pytest.raises(UnsupportedArrayShapeError):
+        NpyImageSource(path)
+
+    path.rename(moved_path)
+    assert moved_path.is_file()
