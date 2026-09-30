@@ -4,6 +4,7 @@ import numpy as np
 import PySide6
 
 from stem_crop_tool import __version__
+from stem_crop_tool.app import create_application
 from stem_crop_tool.ui.main_window import MainWindow
 
 
@@ -14,6 +15,9 @@ def test_runtime_dependencies_and_package_import() -> None:
 
 
 def test_main_window_opens_and_closes(qtbot) -> None:
+    app = create_application([])
+    assert not app.windowIcon().isNull()
+
     window = MainWindow()
     qtbot.addWidget(window)
 

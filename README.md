@@ -4,10 +4,13 @@ STEMCropTool is a cross-platform desktop application for pixel-exact
 cropping of grayscale STEM images and image stacks.
 
 Phases 0 through 6 of the [implementation plan](IMPLEMENTATION_PLAN.md) are
-complete. The application provides lazy readers for NPY, PNG, JPEG, DM3, and
-DM4 data; zoom/pan and stack navigation; a movable, resizable pixel-exact crop;
-and background single or batch export to raw/normalized NPY and PNG. Exports
-include JSON sidecars or batch manifests and can be cancelled from the UI.
+complete. Phase 7 has completed every available validation but still awaits a
+real 3D DM fixture. Phase 8 has a locally validated Windows release candidate
+and awaits its final independent-VM check. The application provides lazy
+readers for NPY, PNG, JPEG, DM3, and DM4 data; zoom/pan and stack navigation; a
+movable, resizable pixel-exact crop; and background single or batch export to
+raw/normalized NPY and PNG. Exports include JSON sidecars or batch manifests
+and can be cancelled from the UI.
 
 The reader layer preserves source dtype and declared dimensionality. NPY and DM
 stacks are memory-mapped, grayscale PNG supports exact 8-bit and 16-bit values,
@@ -60,13 +63,29 @@ Phase 7 validation results and the reproducible performance command are in
 local motif-learn reference reader. Real 3D DM stack support remains provisional
 because no representative fixture is currently available.
 
-## Build the Windows smoke package
+## Build the Windows portable release
 
 ```powershell
-& '.\.venv\python.exe' -m PyInstaller --noconfirm --clean '.\packaging\pyinstaller\STEMCropTool.spec'
+& '.\.venv\python.exe' '.\packaging\pyinstaller\build_release.py'
 ```
 
-The unpacked application is written to `dist\STEMCropTool\`.
+This creates both `dist\STEMCropTool\` and
+`dist\STEMCropTool-0.1.0-windows-x86_64.zip`. Keep the entire portable
+directory together; the EXE is not standalone.
+
+Validate the frozen input/export matrix, including the local real DM3/DM4
+fixtures, while hiding the development Python and Conda environment:
+
+```powershell
+& '.\.venv\python.exe' '.\packaging\pyinstaller\verify_release.py' `
+  --test-data 'D:\work\STEM image crop tool\test data' `
+  --startup-runs 5
+```
+
+Full build, clean-machine, and licensing instructions are in
+[`packaging/pyinstaller/README.md`](packaging/pyinstaller/README.md). The local
+Phase 8 evidence and remaining independent-VM gate are recorded in
+[`docs/phase8_windows_release.md`](docs/phase8_windows_release.md).
 
 For a bounded, non-interactive source or packaged smoke check, set
 `STEM_CROP_TOOL_SMOKE_TEST_MS` to a positive number of milliseconds and set

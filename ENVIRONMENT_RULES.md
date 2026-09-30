@@ -34,11 +34,15 @@ Run the application:
 & '.\.venv\python.exe' -m stem_crop_tool
 ```
 
-Build the Phase 0 Windows smoke package:
+Build the Windows portable release candidate:
 
 ```powershell
-& '.\.venv\python.exe' -m PyInstaller --noconfirm --clean '.\packaging\pyinstaller\STEMCropTool.spec'
+& '.\.venv\python.exe' '.\packaging\pyinstaller\build_release.py'
 ```
+
+The lower-level PyInstaller spec remains at
+`packaging/pyinstaller/STEMCropTool.spec`; use the wrapper above so the license
+bundle, clean-machine verifier, and ZIP are assembled consistently.
 
 Follow `IMPLEMENTATION_PLAN.md` phase by phase. Do not implement work from a
 later phase while an earlier phase is incomplete unless the user explicitly

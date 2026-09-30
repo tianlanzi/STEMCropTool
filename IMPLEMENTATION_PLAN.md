@@ -770,7 +770,7 @@ Every implementation agent must follow this protocol:
 
 ### Phase 8 — Windows release packaging
 
-**Status:** Not started
+**Status:** In progress — local release candidate validated 2026-09-30; clean Windows VM validation pending
 
 **Goal:** Produce a reproducible Windows release candidate that runs without a separately installed Python.
 
@@ -786,6 +786,33 @@ Every implementation agent must follow this protocol:
 - Measure artifact size and startup time.
 - Optionally compare `pyside6-deploy`/Nuitka only after the PyInstaller build is reliable. Do not switch packagers merely for a smaller file without repeating the full packaged-app test matrix.
 - Add an installer only after the portable `onedir` artifact works. Inno Setup is an acceptable later choice.
+
+**Progress and evidence (2026-09-30):**
+
+- Finalized a reproducible PyInstaller `--onedir` build wrapper that produces
+  a portable directory and versioned ZIP from the repository-local Python
+  3.12 environment.
+- Added Windows executable version metadata, a multi-resolution application
+  icon, package-resource configuration, and an exact Qt allowlist containing
+  Core, Gui, Widgets, and five required plugins.
+- Kept Qt as replaceable DLLs and included the application notices, GNU license
+  texts, Qt third-party notices, CPython license, NumPy installed license tree,
+  NCEMpy MIT license, and PyInstaller bootloader license.
+- Identified and excluded incompatible Conda ICU DLLs that caused error 127 in
+  a frozen build; the candidate now starts with Conda/Python variables removed
+  and PATH restricted to Windows system directories.
+- Added an in-process frozen self-test covering 2D NPY, a 3D NPY stack,
+  16-bit PNG, JPEG, the supplied real DM3/DM4 files, exact NPY/PNG export,
+  same-ROI batch export, sidecars, and manifests.
+- Added automated release verification for PE version data, licenses, Qt
+  allowlist, forbidden runtime DLLs, hashes, size, isolated startup, and the
+  frozen format matrix. Exact local measurements are recorded in
+  `docs/phase8_windows_release.md`.
+- Added a standalone PowerShell verifier to the portable directory for use on
+  a Windows 10/11 machine without Python, Conda, Qt, or the repository.
+- The local isolated-environment checks pass. A genuinely independent Windows
+  VM check is still required, so the phase is not marked complete and no
+  installer has been created.
 
 **Exit criteria:**
 
