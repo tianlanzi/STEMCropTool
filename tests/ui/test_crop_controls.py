@@ -34,3 +34,29 @@ def test_numeric_fields_disable_without_selection_or_image(qtbot) -> None:
     assert controls.x_spin.isEnabled()
     controls.clear_image()
     assert not controls.isEnabled()
+
+
+def test_field_labels_stay_with_their_inputs_in_a_wide_window(qtbot) -> None:
+    controls = CropControls()
+    controls.resize(2400, 100)
+    controls.set_image_size(2048, 2048)
+    qtbot.addWidget(controls)
+    controls.show()
+    qtbot.waitUntil(controls.isVisible)
+
+    pairs = (
+        (controls.x_label, controls.x_spin),
+        (controls.y_label, controls.y_spin),
+        (controls.width_label, controls.width_spin),
+        (controls.height_label, controls.height_spin),
+    )
+    for label, spin in pairs:
+        own_gap = spin.geometry().left() - label.geometry().right() - 1
+        assert 0 <= own_gap <= 8
+        assert label.buddy() is spin
+
+    for (_, previous_spin), (next_label, _) in zip(pairs, pairs[1:]):
+        between_groups = (
+            next_label.geometry().left() - previous_spin.geometry().right() - 1
+        )
+        assert between_groups >= 18

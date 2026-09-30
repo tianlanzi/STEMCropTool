@@ -6,11 +6,12 @@ from contextlib import ExitStack
 
 from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import (
-    QGridLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSpinBox,
+    QVBoxLayout,
 )
 
 from stem_crop_tool.core.crop import rect_from_fields
@@ -33,24 +34,36 @@ class CropControls(QGroupBox):
         self.y_spin = self._spin_box("crop_y")
         self.width_spin = self._spin_box("crop_width")
         self.height_spin = self._spin_box("crop_height")
+        self.x_label = QLabel("X")
+        self.y_label = QLabel("Y")
+        self.width_label = QLabel("Width")
+        self.height_label = QLabel("Height")
         self.new_button = QPushButton("New Crop")
         self.clear_button = QPushButton("Clear")
         self.summary_label = QLabel("No selection")
 
-        layout = QGridLayout(self)
-        for column, (label, spin) in enumerate(
+        field_row = QHBoxLayout()
+        field_row.setSpacing(6)
+        for index, (label, spin) in enumerate(
             (
-                ("X", self.x_spin),
-                ("Y", self.y_spin),
-                ("Width", self.width_spin),
-                ("Height", self.height_spin),
+                (self.x_label, self.x_spin),
+                (self.y_label, self.y_spin),
+                (self.width_label, self.width_spin),
+                (self.height_label, self.height_spin),
             )
         ):
-            layout.addWidget(QLabel(label), 0, column * 2)
-            layout.addWidget(spin, 0, column * 2 + 1)
-        layout.addWidget(self.new_button, 0, 8)
-        layout.addWidget(self.clear_button, 0, 9)
-        layout.addWidget(self.summary_label, 1, 0, 1, 10)
+            if index:
+                field_row.addSpacing(12)
+            label.setBuddy(spin)
+            field_row.addWidget(label)
+            field_row.addWidget(spin, 1)
+        field_row.addSpacing(12)
+        field_row.addWidget(self.new_button)
+        field_row.addWidget(self.clear_button)
+
+        layout = QVBoxLayout(self)
+        layout.addLayout(field_row)
+        layout.addWidget(self.summary_label)
 
         for spin in self._spins:
             spin.valueChanged.connect(self._fields_changed)
