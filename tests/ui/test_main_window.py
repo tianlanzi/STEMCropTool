@@ -5,8 +5,8 @@ from threading import Event
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QImage
+from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt, QTimer, QUrl
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QImage
 
 from stem_crop_tool.core.exceptions import DatasetSelectionRequiredError
 from stem_crop_tool.core.models import CropRect, ImageMetadata
@@ -47,11 +47,101 @@ def _wait_for_idle(window: MainWindow, qtbot) -> None:
     qtbot.waitUntil(lambda: window.loading_job_count == 0, timeout=5000)
 
 
+def _file_mime_data(*paths: Path) -> QMimeData:
+    mime_data = QMimeData()
+    mime_data.setUrls([QUrl.fromLocalFile(str(path)) for path in paths])
+    return mime_data
+
+
+def _drag_enter_event(mime_data: QMimeData) -> QDragEnterEvent:
+    return QDragEnterEvent(
+        QPoint(20, 20),
+        Qt.DropAction.CopyAction,
+        mime_data,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
+def _drop_event(mime_data: QMimeData) -> QDropEvent:
+    return QDropEvent(
+        QPointF(20, 20),
+        Qt.DropAction.CopyAction,
+        mime_data,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
 def test_supported_file_filter_is_exact_initial_scope() -> None:
     for extension in ("*.npy", "*.png", "*.jpg", "*.jpeg", "*.dm3", "*.dm4"):
         assert extension in SUPPORTED_FILE_FILTER
     for excluded in ("*.npz", "*.tif", "*.tiff"):
         assert excluded not in SUPPORTED_FILE_FILTER
+
+
+def test_single_supported_file_drop_opens_through_normal_worker(
+    tmp_path,
+    qtbot,
+) -> None:
+    path = tmp_path / "dropped.npy"
+    expected = np.arange(30, dtype=np.uint16).reshape(5, 6)
+    np.save(path, expected)
+    mime_data = _file_mime_data(path)
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.show()
+    assert window.acceptDrops()
+    assert not window.image_view.acceptDrops()
+    assert not window.image_view.viewport().acceptDrops()
+
+    drag_event = _drag_enter_event(mime_data)
+    window.dragEnterEvent(drag_event)
+    assert drag_event.isAccepted()
+    assert path.name in window.statusBar().currentMessage()
+
+    drop_event = _drop_event(mime_data)
+    window.dropEvent(drop_event)
+    assert drop_event.isAccepted()
+    _wait_for_idle(window, qtbot)
+
+    assert window.current_source is not None
+    assert window.current_source.path == path
+    np.testing.assert_array_equal(window.current_source.get_slice(), expected)
+
+
+def test_file_drop_rejects_multiple_unsupported_and_missing_paths(
+    tmp_path,
+    qtbot,
+) -> None:
+    supported_a = tmp_path / "a.npy"
+    supported_b = tmp_path / "b.npy"
+    unsupported = tmp_path / "notes.txt"
+    np.save(supported_a, np.zeros((2, 2), dtype=np.uint8))
+    np.save(supported_b, np.ones((2, 2), dtype=np.uint8))
+    unsupported.write_text("not an image", encoding="utf-8")
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.show()
+
+    payloads = (
+        _file_mime_data(supported_a, supported_b),
+        _file_mime_data(unsupported),
+        _file_mime_data(tmp_path / "missing.npy"),
+    )
+    for mime_data in payloads:
+        drag_event = _drag_enter_event(mime_data)
+        window.dragEnterEvent(drag_event)
+        assert not drag_event.isAccepted()
+
+        drop_event = _drop_event(mime_data)
+        window.dropEvent(drop_event)
+        assert not drop_event.isAccepted()
+
+    assert window.current_source is None
+    assert window.loading_job_count == 0
 
 
 def test_window_opens_2d_and_3d_npy_and_switches_lazily(tmp_path, qtbot) -> None:
@@ -131,10 +221,15 @@ def test_failed_open_preserves_existing_document(tmp_path, qtbot, monkeypatch) -
     assert "could not open" in window.last_error.lower()
 
 
-def test_opening_runs_off_gui_thread_and_keeps_event_loop_responsive(qtbot) -> None:
+def test_opening_runs_off_gui_thread_and_keeps_event_loop_responsive(
+    tmp_path,
+    qtbot,
+) -> None:
     gate = Event()
     worker_started = Event()
     source = TrackedSource("slow.npy", np.arange(16, dtype=np.uint8).reshape(4, 4))
+    dropped_path = tmp_path / "during-load.npy"
+    np.save(dropped_path, np.zeros((2, 2), dtype=np.uint8))
 
     def slow_opener(_path, **_kwargs):
         worker_started.set()
@@ -151,6 +246,14 @@ def test_opening_runs_off_gui_thread_and_keeps_event_loop_responsive(qtbot) -> N
     QTimer.singleShot(0, lambda: gui_tick.append(True))
     qtbot.waitUntil(lambda: bool(gui_tick))
     assert window.is_loading
+
+    mime_data = _file_mime_data(dropped_path)
+    drag_event = _drag_enter_event(mime_data)
+    window.dragEnterEvent(drag_event)
+    assert not drag_event.isAccepted()
+    drop_event = _drop_event(mime_data)
+    window.dropEvent(drop_event)
+    assert not drop_event.isAccepted()
 
     gate.set()
     _wait_for_idle(window, qtbot)

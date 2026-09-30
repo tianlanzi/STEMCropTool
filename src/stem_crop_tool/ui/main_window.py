@@ -5,8 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QThread, Qt, Signal, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtCore import QCoreApplication, QMimeData, QThread, Qt, Signal, Slot
+from PySide6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QDragEnterEvent,
+    QDragLeaveEvent,
+    QDragMoveEvent,
+    QDropEvent,
+    QKeySequence,
+)
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -25,7 +33,10 @@ from stem_crop_tool.core.readers.base import ImageDocument, ImageSource
 from stem_crop_tool.core.readers.dm import DMDatasetInfo, list_dm_datasets
 from stem_crop_tool.core.models import CropRect, ExportRequest, ExportResult
 from stem_crop_tool.infrastructure.display import make_grayscale_qimage
-from stem_crop_tool.infrastructure.source_loader import open_image_source
+from stem_crop_tool.infrastructure.source_loader import (
+    SUPPORTED_INPUT_EXTENSIONS,
+    open_image_source,
+)
 from stem_crop_tool.ui.crop_controls import CropControls
 from stem_crop_tool.ui.export_dialog import ExportDialog
 from stem_crop_tool.ui.image_view import ImageView
@@ -95,6 +106,11 @@ class MainWindow(QMainWindow):
         self._closing = False
 
         self.image_view = ImageView()
+        # QGraphicsView accepts drops by default and would consume Explorer
+        # file drops before the main window can route them through open_path().
+        self.image_view.setAcceptDrops(False)
+        self.image_view.viewport().setAcceptDrops(False)
+        self.setAcceptDrops(True)
         self.stack_controls = StackControls()
         self.crop_controls = CropControls()
         self.stack_controls.slice_changed.connect(self.set_current_slice)
@@ -236,6 +252,51 @@ class MainWindow(QMainWindow):
         )
         if path:
             self.open_path(path)
+
+    @staticmethod
+    def _supported_drop_path(mime_data: QMimeData) -> Path | None:
+        """Return the only supported local file in a drag payload."""
+
+        if not mime_data.hasUrls():
+            return None
+        urls = mime_data.urls()
+        if len(urls) != 1 or not urls[0].isLocalFile():
+            return None
+        path = Path(urls[0].toLocalFile())
+        if not path.is_file() or path.suffix.lower() not in SUPPORTED_INPUT_EXTENSIONS:
+            return None
+        return path
+
+    def _file_drop_is_available(self) -> bool:
+        return not self._closing and not self._busy and not self._export_active
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
+        path = self._supported_drop_path(event.mimeData())
+        if path is not None and self._file_drop_is_available():
+            event.acceptProposedAction()
+            self.statusBar().showMessage(f"Drop to open {path.name}")
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802
+        path = self._supported_drop_path(event.mimeData())
+        if path is not None and self._file_drop_is_available():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:  # noqa: N802
+        if not self._busy:
+            self.statusBar().clearMessage()
+        event.accept()
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
+        path = self._supported_drop_path(event.mimeData())
+        if path is None or not self._file_drop_is_available():
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self.open_path(path)
 
     def open_path(
         self,

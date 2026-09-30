@@ -23,14 +23,14 @@ The exact size, file count, hashes, and startup measurements below are filled
 from the final `build\phase8_release_report.json` generated during this phase.
 
 <!-- RELEASE_METRICS_START -->
-- Distribution: 167 files, 99,076,752 bytes (94.49 MiB)
+- Distribution: 167 files, 99,077,864 bytes (94.49 MiB)
 - Executable SHA-256:
-  `d20ef61103fcdf9ed373a0de4695f2bf3ff646ef638b1a62d5761627e3435640`
-- ZIP: 38,834,314 bytes (37.03 MiB)
+  `226c1b30fa091c5e0bde78009a6448dd3703864d31051623293925d7056ab087`
+- ZIP: 38,834,827 bytes (37.03 MiB)
 - ZIP SHA-256:
-  `573ffd24908b46047fcfd89e7453f319e5d46525f3a56f6d09b69f885733c3da`
-- Packaged startup: 0.363 seconds median over five offscreen runs
-- Frozen real-data self-test: 0.694 seconds
+  `90b673571de707e96dae621af6c67f811d59b30d24e1fcf5a171022004b5a04f`
+- Packaged startup: 0.355 seconds median over five offscreen runs
+- Frozen real-data self-test: 0.695 seconds
 <!-- RELEASE_METRICS_END -->
 
 ## Local isolated-environment validation

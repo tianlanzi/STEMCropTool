@@ -31,6 +31,13 @@ Primary target:
 - Do not automatically `squeeze()` higher-dimensional data into an accepted shape. A declared 4D dataset remains unsupported even when one dimension has length 1.
 - Reject color/multi-channel raster images rather than silently converting them to grayscale.
 - NPZ is out of scope for the initial release.
+- Users can open one supported local file through **File → Open** or by
+  dragging it from the operating-system file manager onto the application
+  window. Both entry points must use the same asynchronous reader and error or
+  DM dataset-selection workflow.
+- Drag-and-drop rejects directories, missing files, unsupported extensions,
+  remote URLs, and payloads containing more than one file. It is disabled
+  while a load or export operation is active.
 
 ### 2.2 Supported outputs
 
@@ -554,6 +561,8 @@ Every implementation agent must follow this protocol:
 
 - Build the English main window, menu/toolbar, status area, and central image view.
 - Implement Open File with the exact supported extension filters.
+- Implement single-file drag-and-drop opening through the same worker path as
+  Open File.
 - Run file parsing/opening through a worker and show non-blocking progress/busy state.
 - Add DM dataset selection when needed.
 - Implement safe NumPy-to-QImage conversion with explicit lifetime ownership, byte order, and row-stride handling.

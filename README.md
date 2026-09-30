@@ -48,6 +48,11 @@ activating the environment.
 & '.\.venv\python.exe' -m stem_crop_tool
 ```
 
+Open one supported image through **File → Open** or drag a single `.npy`,
+`.png`, `.jpg`, `.jpeg`, `.dm3`, or `.dm4` file from Explorer onto the
+application window. File drops use the same background reader, validation, and
+DM dataset-selection workflow as the Open command.
+
 ## Run tests
 
 ```powershell
