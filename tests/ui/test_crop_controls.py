@@ -28,12 +28,24 @@ def test_numeric_fields_disable_without_selection_or_image(qtbot) -> None:
     controls.set_image_size(20, 30)
     assert controls.isEnabled()
     assert not controls.x_spin.isEnabled()
+    assert not controls.export_button.isEnabled()
     assert not controls.clear_button.isEnabled()
 
     controls.set_rect(CropRect(1, 2, 3, 4))
     assert controls.x_spin.isEnabled()
+    assert controls.export_button.isEnabled()
     controls.clear_image()
     assert not controls.isEnabled()
+
+
+def test_export_button_emits_only_with_a_selection(qtbot) -> None:
+    controls = CropControls()
+    qtbot.addWidget(controls)
+    controls.set_image_size(20, 30)
+    controls.set_rect(CropRect(1, 2, 3, 4))
+
+    with qtbot.waitSignal(controls.export_requested):
+        controls.export_button.click()
 
 
 def test_field_labels_stay_with_their_inputs_in_a_wide_window(qtbot) -> None:

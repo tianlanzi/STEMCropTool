@@ -23,7 +23,7 @@ class CropControls(QGroupBox):
     """Edit a crop as exact zero-based source-pixel coordinates."""
 
     rect_edited = Signal(object)
-    new_requested = Signal()
+    export_requested = Signal()
     clear_requested = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -40,7 +40,8 @@ class CropControls(QGroupBox):
         self.y_label = QLabel("Y")
         self.width_label = QLabel("Width")
         self.height_label = QLabel("Height")
-        self.new_button = QPushButton("New Crop")
+        self.export_button = QPushButton("Export Crop...")
+        self.export_button.setObjectName("export_crop_button")
         self.clear_button = QPushButton("Clear")
         self.summary_label = QLabel("No selection")
         self.summary_label.setObjectName("crop_summary")
@@ -62,7 +63,7 @@ class CropControls(QGroupBox):
             field_row.addWidget(spin)
         field_row.addStretch(1)
         field_row.addSpacing(12)
-        field_row.addWidget(self.new_button)
+        field_row.addWidget(self.export_button)
         field_row.addWidget(self.clear_button)
 
         layout = QVBoxLayout(self)
@@ -73,7 +74,7 @@ class CropControls(QGroupBox):
 
         for spin in self._spins:
             spin.valueChanged.connect(self._fields_changed)
-        self.new_button.clicked.connect(self.new_requested)
+        self.export_button.clicked.connect(self.export_requested)
         self.clear_button.clicked.connect(self.clear_requested)
         self.clear_image()
 
@@ -102,7 +103,6 @@ class CropControls(QGroupBox):
             raise ValueError("image dimensions must be positive")
         self._image_size = (width, height)
         self.setEnabled(True)
-        self.new_button.setEnabled(True)
         self.set_rect(None)
 
     def clear_image(self) -> None:
@@ -119,6 +119,7 @@ class CropControls(QGroupBox):
             return
         if rect is None:
             self._set_fields_enabled(False)
+            self.export_button.setEnabled(False)
             self.clear_button.setEnabled(False)
             self.summary_label.setText("No selection — drag on the image to create one")
             return
@@ -136,6 +137,7 @@ class CropControls(QGroupBox):
             self.width_spin.setValue(rect.width)
             self.height_spin.setValue(rect.height)
         self._set_fields_enabled(True)
+        self.export_button.setEnabled(True)
         self.clear_button.setEnabled(True)
         self.summary_label.setText(
             f"x={rect.x}, y={rect.y}, width={rect.width}, height={rect.height}"

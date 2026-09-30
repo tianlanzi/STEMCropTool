@@ -358,9 +358,7 @@ def test_numeric_crop_sync_clear_and_file_reopen_reset(tmp_path, qtbot) -> None:
     assert not window.clear_crop_action.isEnabled()
 
     window.image_view.set_crop_rect(CropRect(2, 3, 4, 5))
-    window.crop_controls.new_button.click()
-    assert window.current_crop is None
-    window.image_view.set_crop_rect(CropRect(2, 3, 4, 5))
+    assert window.crop_controls.export_button.isEnabled()
     window.clear_crop_action.trigger()
     assert window.current_crop is None
     assert not window.crop_controls.x_spin.isEnabled()

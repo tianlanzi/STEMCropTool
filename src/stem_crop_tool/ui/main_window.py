@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         self.stack_controls.slice_changed.connect(self.set_current_slice)
         self.image_view.crop_changed.connect(self._on_crop_changed)
         self.crop_controls.rect_edited.connect(self.image_view.set_crop_rect)
-        self.crop_controls.new_requested.connect(self.image_view.start_new_crop)
+        self.crop_controls.export_requested.connect(self.show_export_dialog)
         self.crop_controls.clear_requested.connect(self.image_view.clear_crop)
 
         central = QWidget()
@@ -208,11 +208,6 @@ class MainWindow(QMainWindow):
         self.reset_view_action.setToolTip("Reset zoom and position (R)")
         self.reset_view_action.triggered.connect(self.image_view.reset_view)
 
-        self.crop_action = QAction("&New Crop", self)
-        self.crop_action.setShortcut("N")
-        self.crop_action.setToolTip("Draw a new crop; hold Shift for a square (N)")
-        self.crop_action.triggered.connect(self.image_view.start_new_crop)
-
         self.clear_crop_action = QAction("&Clear Crop", self)
         self.clear_crop_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
@@ -243,7 +238,6 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.reset_view_action)
 
         crop_menu = self.menuBar().addMenu("&Crop")
-        crop_menu.addAction(self.crop_action)
         crop_menu.addAction(self.clear_crop_action)
 
     def _create_toolbar(self) -> None:
@@ -260,7 +254,6 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.actual_pixels_action)
         toolbar.addAction(self.reset_view_action)
         toolbar.addSeparator()
-        toolbar.addAction(self.crop_action)
         toolbar.addAction(self.clear_crop_action)
         toolbar.addAction(self.export_action)
         self.addToolBar(toolbar)
@@ -663,10 +656,12 @@ class MainWindow(QMainWindow):
         self.actual_pixels_action.setEnabled(has_source)
         self.reset_view_action.setEnabled(has_source)
         crop_enabled = has_source and not operation_active
-        self.crop_action.setEnabled(crop_enabled)
         self.clear_crop_action.setEnabled(crop_enabled and self.current_crop is not None)
         self.image_view.set_crop_enabled(crop_enabled)
         self.crop_controls.setEnabled(crop_enabled)
+        self.crop_controls.export_button.setEnabled(
+            crop_enabled and self.current_crop is not None
+        )
         self.crop_controls.setVisible(has_source)
         self.stack_controls.setEnabled(has_source and not operation_active)
         self.crop_status_label.setVisible(has_source)

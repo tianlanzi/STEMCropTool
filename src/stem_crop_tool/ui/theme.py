@@ -158,6 +158,19 @@ QPushButton:disabled {
     background: #f1f3f4;
     color: #a1a9ae;
 }
+QPushButton#export_crop_button:enabled {
+    background: #258f92;
+    border-color: #258f92;
+    color: #ffffff;
+    font-weight: 600;
+}
+QPushButton#export_crop_button:hover {
+    background: #217f82;
+    border-color: #217f82;
+}
+QPushButton#export_crop_button:pressed {
+    background: #1c7072;
+}
 
 QStatusBar {
     background: #fafbfb;
